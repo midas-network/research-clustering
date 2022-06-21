@@ -1,18 +1,15 @@
 import os
-import string
-import sys
-import warnings
-import matplotlib
-import nltk
 import re
+import string
+import warnings
 
+import matplotlib
 import matplotlib.pyplot as plt
-
+import nltk
 import numpy as np
 import pandas as pd
-
 from matplotlib import cm
-from nltk import PorterStemmer, ngrams
+from nltk import PorterStemmer
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from sklearn.cluster import MiniBatchKMeans
@@ -66,7 +63,7 @@ def plot_tsne_pca(cluster_num, ngram_size, data, labels):
     ax[1].scatter(tsne[max_items, 0], tsne[max_items, 1], c=label_subset)
     ax[1].set_title('TSNE Cluster Plot: {} Clusters; {}-word n-grams'.format(cluster_num, ngram_size))
 
-    plt.savefig('output/clstr-sz-{}-ngrm-sz{}.png'.format(cluster_num, ngram_size))
+    plt.savefig('output/kmeans-sz-{}-ngrm-sz{}.png'.format(cluster_num, ngram_size))
 
 
 def get_top_keywords(clusters_df, cluster_index, labels, n_terms):
@@ -145,16 +142,17 @@ def main():
 
 
         if DEBUG:
-            range_max = 4
+            range_max = 40
         else:
-            range_max = 12
+            range_max = 40
 
         for num_cluster in range(3, range_max):
             mbk = MiniBatchKMeans(n_clusters=num_cluster, init_size=1024, batch_size=2048, random_state=10)
             clusters = mbk.fit_predict(text)
+            print(str(clusters.max()))
             df_clusters = pd.DataFrame(text.todense()).groupby(clusters).mean()
-            print_clusters_report(f, num_cluster, ngram_size, abstracts_df, df_clusters, clusters, tfidf)
-            plot_tsne_pca(num_cluster, ngram_size, text, clusters)
+            print_clusters_report(f, clusters.max()+1, ngram_size, abstracts_df, df_clusters, clusters, tfidf)
+            plot_tsne_pca(clusters.max()+1, ngram_size, text, clusters)
 
     quit()
 
