@@ -38,8 +38,9 @@ FIELDS = [{"pubmedKeywords"},
           {"paperAbstract"}]
 
 
-def remove_stop_words_and_do_stemming(unfiltered_text):
-    unfiltered_text = remove_common(unfiltered_text.translate(str.maketrans("", "", string.punctuation)))
+def remove_stop_words_and_do_stemming(unfiltered_text, do_stemming, do_remove_common):
+    unfiltered_text = remove_common(unfiltered_text.translate(str.maketrans("", "", string.punctuation)),
+                                    do_remove_common)
     word_tokens = word_tokenize(unfiltered_text.lower())
 
     filtered_sentence = []
@@ -53,7 +54,9 @@ def remove_stop_words_and_do_stemming(unfiltered_text):
     for w in filtered_sentence:
         # don't add single letters
         if len(w) != 1:
-            root_word = ps.stem(w)
+            root_word = w
+            if do_stemming:
+                root_word = ps.stem(root_word)
             stem_words.append(root_word)
     return ' '.join(stem_words)
 
@@ -106,7 +109,10 @@ def print_clusters_report(f, algo_name, num_of_clusters, ngram_size, main_df, cl
             '\n\tTop 20 n-grams: ' + get_top_keywords(clusters_df, cluster_index, tfidf_obj.get_feature_names(), 20))
 
 
-def remove_common(text):
+def remove_common(text, bypass):
+    if bypass:
+        return text
+
     text = re.sub(r'(©|copyright|Copyright|FUNDING|Funding Statement|This article is protected).*$', '', text)
     text = text.lower()
     text = re.sub(r'(infectious disease)', '', text)
@@ -264,7 +270,7 @@ def remove_common(text):
     return text
 
 
-def build_corpus(field_set):
+def build_corpus(field_set, do_stemming, do_remove_common):
     people = pd.read_json('data/people.json')
     papers = pd.read_json('data/papers.json')
     people = people[people['publications'].map(lambda d: len(d) > 0)]
@@ -278,7 +284,7 @@ def build_corpus(field_set):
             row = papers.loc[papers['uri'] == paperIdx]
 
             if not row.empty and len(paperIdx) > 32:
-                title = remove_common(row['title'].values[0])
+                title = remove_common(row['title'].values[0], do_remove_common)
                 for field in field_set:
                     abstract = row[field]
                     if isinstance(abstract, pd.Series):
@@ -288,15 +294,15 @@ def build_corpus(field_set):
                             continue;
                         abstract = " ".join(row[field].values[0])
                     if isinstance(abstract, str):
-                        abstract = remove_common(abstract)
+                        abstract = remove_common(abstract, do_remove_common)
 
                     all_person_text += " " + abstract
 
         all_person_text = title + all_person_text
-        all_person_text = remove_common(all_person_text)
+        all_person_text = remove_common(all_person_text, do_remove_common)
         person = people['name'][personIdx] + " " + str(personIdx)
         people_list.append(person)
-        list_of_words = remove_stop_words_and_do_stemming(all_person_text)
+        list_of_words = remove_stop_words_and_do_stemming(all_person_text, do_stemming, do_remove_common)
         text_list.append(''.join(list_of_words))
 
     df = pd.DataFrame({
@@ -345,7 +351,7 @@ def main():
     for field_set in FIELDS:
         output_dir = "output/" + "-".join(field_set) + "/"
         os.makedirs(output_dir, exist_ok=True)
-        abstracts_df = build_corpus(field_set)
+        abstracts_df = build_corpus(field_set, do_stemming=True, do_remove_common=True)
         f = open(output_dir + "-".join(field_set) + '-cluster-info.txt', 'w')
 
         abstracts_df.drop(columns="people")
