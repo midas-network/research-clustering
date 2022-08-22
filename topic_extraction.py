@@ -20,7 +20,7 @@ batch_size = 128
 init = "nndsvda"
 
 
-def plot_top_words(model, feature_names, n_top_words, title):
+def plot_top_words(model, feature_names, n_top_words, title,fname):
     fig, axes = plt.subplots(2, 5, figsize=(30, 15), sharex=True)
     axes = axes.flatten()
     for topic_idx, topic in enumerate(model.components_):
@@ -38,7 +38,7 @@ def plot_top_words(model, feature_names, n_top_words, title):
         fig.suptitle(title, fontsize=40)
 
     plt.subplots_adjust(top=0.90, bottom=0.05, wspace=0.90, hspace=0.3)
-    plt.show()
+    plt.savefig(fname)
 
 
 # Load the 20 newsgroups dataset and vectorize it. We use a few heuristics
@@ -65,7 +65,7 @@ print("done in %0.3fs." % (time() - t0))
 # Use tf-idf features for NMF.
 print("Extracting tf-idf features for NMF...")
 tfidf_vectorizer = TfidfVectorizer(
-    max_df=0.95, min_df=2, max_features=n_features, stop_words="english"
+    max_df=0.95, min_df=2, max_features=n_features, ngram_range=(1,3),stop_words="english"
 )
 t0 = time()
 tfidf = tfidf_vectorizer.fit_transform(data_samples)
@@ -74,7 +74,7 @@ print("done in %0.3fs." % (time() - t0))
 # Use tf (raw term count) features for LDA.
 print("Extracting tf features for LDA...")
 tf_vectorizer = CountVectorizer(
-    max_df=0.95, min_df=2, max_features=n_features, stop_words="english"
+    max_df=0.95, min_df=2, max_features=n_features, ngram_range=(1,3),stop_words="english"
 )
 t0 = time()
 tf = tf_vectorizer.fit_transform(data_samples)
@@ -101,7 +101,7 @@ print("done in %0.3fs." % (time() - t0))
 
 tfidf_feature_names = tfidf_vectorizer.get_feature_names_out()
 plot_top_words(
-    nmf, tfidf_feature_names, n_top_words, "Topics in NMF model (Frobenius norm)"
+    nmf, tfidf_feature_names, n_top_words, "Topics in NMF model (Frobenius norm)","nmf-frobenius.png"
 )
 
 # Fit the NMF model
@@ -131,6 +131,7 @@ plot_top_words(
     tfidf_feature_names,
     n_top_words,
     "Topics in NMF model (generalized Kullback-Leibler divergence)",
+    "nmf-kullback.png"
 )
 
 # Fit the MiniBatchNMF model
@@ -160,6 +161,7 @@ plot_top_words(
     tfidf_feature_names,
     n_top_words,
     "Topics in MiniBatchNMF model (Frobenius norm)",
+    "minibtach-frobenius.png"
 )
 
 # Fit the MiniBatchNMF model
@@ -188,6 +190,7 @@ plot_top_words(
     tfidf_feature_names,
     n_top_words,
     "Topics in MiniBatchNMF model (generalized Kullback-Leibler divergence)",
+    "minibatch-kullback.png"
 )
 
 print(
@@ -207,4 +210,4 @@ lda.fit(tf)
 print("done in %0.3fs." % (time() - t0))
 
 tf_feature_names = tf_vectorizer.get_feature_names_out()
-plot_top_words(lda, tf_feature_names, n_top_words, "Topics in LDA model")
+plot_top_words(lda, tf_feature_names, n_top_words, "Topics in LDA model","lda.png")

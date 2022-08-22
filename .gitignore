@@ -2,3 +2,5 @@
 *.iml
 .idea
 /venv
+*.png
+__pycache__/
