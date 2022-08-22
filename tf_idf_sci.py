@@ -110,7 +110,7 @@ def print_clusters_report(f, algo_name, num_of_clusters, ngram_size, main_df, cl
 
 
 def remove_common(text, bypass):
-    if bypass:
+    if not bypass:
         return text
 
     text = re.sub(r'(©|copyright|Copyright|FUNDING|Funding Statement|This article is protected).*$', '', text)
