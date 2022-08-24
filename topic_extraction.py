@@ -5,12 +5,13 @@
 import os
 from time import time
 import matplotlib.pyplot as plt
+import pandas as pd
 
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.decomposition import NMF, MiniBatchNMF, LatentDirichletAllocation
 from sklearn.datasets import fetch_20newsgroups
 
-from tf_idf_sci import build_corpus, FIELDS
+from tf_idf_sci import build_corpus, FIELDS, STEMDICT
 
 n_samples = 2000
 n_features = 100000
@@ -21,18 +22,29 @@ init = "nndsvda"
 
 
 def process_field(fields):
-    def plot_top_words(model, feature_names, n_top_words, title):
+    def plot_top_words(model, nmf_features, feature_names, n_top_words, title):
 
         fig, axes = plt.subplots(2, 5, figsize=(30, 15), sharex=True)
         axes = axes.flatten()
+        document_count = pd.DataFrame(nmf_features).idxmax(axis=1).value_counts()
         for topic_idx, topic in enumerate(model.components_):
             top_features_ind = topic.argsort()[: -n_top_words - 1 : -1]
             top_features = [feature_names[i] for i in top_features_ind]
+            top_unstemmed_features = []
             weights = topic[top_features_ind]
 
+            for features in top_features:
+                feature = ""
+                for feature_word in features.split(" "):
+                    feature += STEMDICT[feature_word] + " "
+                top_unstemmed_features.append(feature.rstrip())
+
             ax = axes[topic_idx]
-            ax.barh(top_features, weights, height=0.7)
-            ax.set_title("Topic {} ({:.2f})".format(topic_idx + 1, (topic[:1000]).sum()), fontdict={"fontsize": 30})
+            ax.barh(top_unstemmed_features, weights, height=0.7)
+            doc_count = document_count.get(topic_idx)
+            if doc_count is None:
+                doc_count = 0
+            ax.set_title("Topic {} ({} docs)".format(topic_idx + 1, doc_count), fontdict={"fontsize": 30})
             ax.invert_yaxis()
             ax.tick_params(axis="both", which="major", labelsize=20)
             for i in "top right left".split():
@@ -44,6 +56,7 @@ def process_field(fields):
         plt.ioff()
         plt.savefig(output_dir + '{}.png'.format(title))
         plt.close(fig)
+
 
 
 
@@ -105,12 +118,14 @@ def process_field(fields):
     ).fit(tfidf)
     print("done in %0.3fs." % (time() - t0))
 
+    nmf_features = nmf.transform(tfidf)
+
     output_dir = "output-te/" + "-".join(fields) + "/"
     os.makedirs(output_dir, exist_ok=True)
 
     tfidf_feature_names = tfidf_vectorizer.get_feature_names_out()
     plot_top_words(
-        nmf, tfidf_feature_names, n_top_words, "Topics in NMF model (Frobenius norm)"
+        nmf, nmf_features, tfidf_feature_names, n_top_words, "Topics in NMF model (Frobenius norm)"
     )
 
     # Fit the NMF model
@@ -133,10 +148,11 @@ def process_field(fields):
         l1_ratio=0.5,
     ).fit(tfidf)
     print("done in %0.3fs." % (time() - t0))
-
+    nmf_features = nmf.transform(tfidf)
     tfidf_feature_names = tfidf_vectorizer.get_feature_names_out()
     plot_top_words(
         nmf,
+        nmf_features,
         tfidf_feature_names,
         n_top_words,
         "Topics in NMF model (generalized Kullback-Leibler divergence)",
@@ -162,10 +178,11 @@ def process_field(fields):
     ).fit(tfidf)
     print("done in %0.3fs." % (time() - t0))
 
-
+    nmf_features = mbnmf.transform(tfidf)
     tfidf_feature_names = tfidf_vectorizer.get_feature_names_out()
     plot_top_words(
         mbnmf,
+        nmf_features,
         tfidf_feature_names,
         n_top_words,
         "Topics in MiniBatchNMF model (Frobenius norm)",
@@ -189,11 +206,13 @@ def process_field(fields):
         alpha_H=0.00005,
         l1_ratio=0.5,
     ).fit(tfidf)
+    nmf_features = mbnmf.transform(tfidf)
     print("done in %0.3fs." % (time() - t0))
 
     tfidf_feature_names = tfidf_vectorizer.get_feature_names_out()
     plot_top_words(
         mbnmf,
+        nmf_features,
         tfidf_feature_names,
         n_top_words,
         "Topics in MiniBatchNMF model (generalized Kullback-Leibler divergence)",

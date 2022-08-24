@@ -27,6 +27,7 @@ stop_words = set(stopwords.words('english'))
 # set DEBUG in your environment variables to enable debug mode
 DEBUG = os.getenv("DEBUG", 'False').lower() in ('true', '1', 't')
 
+STEMDICT = {}
 
 FIELDS = [{"pubmedKeywords"},
           {"pubmedKeywords", "meshTerms"},
@@ -56,8 +57,9 @@ def remove_stop_words_and_do_stemming(unfiltered_text, do_stemming, do_remove_co
         if len(w) != 1:
             root_word = w
             if do_stemming:
-                root_word = ps.stem(root_word)
-            stem_words.append(root_word)
+                stem_word = ps.stem(root_word)
+                STEMDICT[stem_word] = root_word
+            stem_words.append(stem_word)
     return ' '.join(stem_words)
 
 
