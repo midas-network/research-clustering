@@ -2,3 +2,6 @@
 *.iml
 .idea
 /venv
+/data
+/output-te
+counts.csv

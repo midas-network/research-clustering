@@ -11,22 +11,30 @@ from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.decomposition import NMF, MiniBatchNMF, LatentDirichletAllocation
 from sklearn.datasets import fetch_20newsgroups
 
-from tf_idf_sci import build_corpus, FIELDS, STEMDICT
+from tf_idf_sci import build_corpus, FIELDS, STEMDICT, write_cluster_to_json, plot_sil
 
 n_samples = 2000
 n_features = 100000
-n_components = 10
+n_components = 5
 n_top_words = 20
 batch_size = 128
 init = "nndsvda"
 
 
+def get_people_for_topic(people, series):
+    people_per_topic = {}
+    for i in range(0, len(series)):
+        people_per_topic[''.join([j for j in people[i] if not j.isdigit()]).strip()] = str(series[i])
+
+    return people_per_topic
+
 def process_field(fields):
-    def plot_top_words(model, nmf_features, feature_names, n_top_words, title):
+    def plot_top_words(model, nmf_features, feature_names, n_top_words, title, people):
 
         fig, axes = plt.subplots(2, 5, figsize=(30, 15), sharex=True)
         axes = axes.flatten()
         document_count = pd.DataFrame(nmf_features).idxmax(axis=1).value_counts()
+        feature_dict = {}
         for topic_idx, topic in enumerate(model.components_):
             top_features_ind = topic.argsort()[: -n_top_words - 1 : -1]
             top_features = [feature_names[i] for i in top_features_ind]
@@ -38,6 +46,11 @@ def process_field(fields):
                 for feature_word in features.split(" "):
                     feature += STEMDICT[feature_word] + " "
                 top_unstemmed_features.append(feature.rstrip())
+
+            feature_dict[topic_idx] = ",".join(top_unstemmed_features)
+
+            write_cluster_to_json(title + "-" + "-".join(fields),
+                                  get_people_for_topic(people, pd.DataFrame(nmf_features).idxmax(axis=1)), feature_dict)
 
             ax = axes[topic_idx]
             ax.barh(top_unstemmed_features, weights, height=0.7)
@@ -58,9 +71,6 @@ def process_field(fields):
         plt.close(fig)
 
 
-
-
-
     # Load the 20 newsgroups dataset and vectorize it. We use a few heuristics
     # to filter out useless terms early on: the posts are stripped of headers,
     # footers and quoted replies, and common English words, words occurring in
@@ -72,6 +82,9 @@ def process_field(fields):
 
     abstracts_df = build_corpus(fields, do_stemming=True, do_remove_common=True)
     data = abstracts_df["text"].tolist()
+    # texts = abstracts_df["text"]
+    # dictionary = Dictionary(texts)
+    people = abstracts_df["people"].tolist()
 
     # data, _ = fetch_20newsgroups(
     #     shuffle=True,
@@ -79,9 +92,13 @@ def process_field(fields):
     #     remove=("headers", "footers", "quotes"),
     #     return_X_y=True,
     # )
+
+    def convert(lst):
+        return ''.join(lst).split()
+
     data_samples = data[:n_samples]
     print("done in %0.3fs." % (time() - t0))
-
+    data_samnples_list = [convert(item) for item in data_samples]
     # Use tf-idf features for NMF.
     print("Extracting tf-idf features for NMF...")
     tfidf_vectorizer = TfidfVectorizer(
@@ -92,7 +109,8 @@ def process_field(fields):
     print("done in %0.3fs." % (time() - t0))
 
     # Use tf (raw term count) features for LDA.
-    print("Extracting tf features for LDA...")
+    # print("Extracting tf features for LDA...")
+    #THIS IS THE DICT FOLLOWED BY THE COUNTS!
     tf_vectorizer = CountVectorizer(
         max_df=0.95, min_df=2, max_features=n_features, stop_words="english", ngram_range=(1, 4)
     )
@@ -125,7 +143,7 @@ def process_field(fields):
 
     tfidf_feature_names = tfidf_vectorizer.get_feature_names_out()
     plot_top_words(
-        nmf, nmf_features, tfidf_feature_names, n_top_words, "Topics in NMF model (Frobenius norm)"
+        nmf, nmf_features, tfidf_feature_names, n_top_words, "Topics in NMF model (Frobenius norm)", people
     )
 
     # Fit the NMF model
@@ -136,7 +154,7 @@ def process_field(fields):
         % (n_samples, n_features),
     )
     t0 = time()
-    nmf = NMF(
+    nmf_c = NMF(
         n_components=n_components,
         random_state=1,
         init=init,
@@ -146,7 +164,11 @@ def process_field(fields):
         alpha_W=0.00005,
         alpha_H=0.00005,
         l1_ratio=0.5,
-    ).fit(tfidf)
+    )
+
+    nmf = nmf_c.fit(tfidf)
+
+
     print("done in %0.3fs." % (time() - t0))
     nmf_features = nmf.transform(tfidf)
     tfidf_feature_names = tfidf_vectorizer.get_feature_names_out()
@@ -156,6 +178,7 @@ def process_field(fields):
         tfidf_feature_names,
         n_top_words,
         "Topics in NMF model (generalized Kullback-Leibler divergence)",
+        people
     )
 
     # Fit the MiniBatchNMF model
@@ -186,6 +209,7 @@ def process_field(fields):
         tfidf_feature_names,
         n_top_words,
         "Topics in MiniBatchNMF model (Frobenius norm)",
+        people
     )
 
     # Fit the MiniBatchNMF model
@@ -216,13 +240,14 @@ def process_field(fields):
         tfidf_feature_names,
         n_top_words,
         "Topics in MiniBatchNMF model (generalized Kullback-Leibler divergence)",
+        people
     )
 
-    print(
-        "\n" * 2,
-        "Fitting LDA models with tf features, n_samples=%d and n_features=%d..."
-        % (n_samples, n_features),
-    )
+    # print(
+    #     "\n" * 2,
+    #     "Fitting LDA models with tf features, n_samples=%d and n_features=%d..."
+    #     % (n_samples, n_features),
+    # )
     # lda = LatentDirichletAllocation(
     #     n_components=n_components,
     #     max_iter=5,
