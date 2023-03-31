@@ -251,11 +251,11 @@ def build_corpus_words_only(field_set, do_stemming, do_remove_common):
     text_list = []
     all_person_text = ""
     for index, row in papers.iterrows():
-        if index > 100:
-            df = pd.DataFrame({
-                'text': text_list
-            })
-            return df
+        # if index > 100:
+        #     df = pd.DataFrame({
+        #         'text': text_list
+        #     })
+        #     return df
         title = remove_common(row['title'], do_remove_common)
         for field in field_set:
             abstract = row[field]
@@ -278,3 +278,51 @@ def build_corpus_words_only(field_set, do_stemming, do_remove_common):
         'text': text_list
     })
     return df
+
+
+def build_corpus_words_only_by_year (field_set, do_stemming, do_remove_common):
+    papers = pd.read_json('data_sources/papers.json')
+    text_dict = {}
+    all_person_text = ""
+    # import pdb;pdb.set_trace()
+    for index, row in papers.iterrows():
+        # if index > 100:
+        #     dfs = {}
+        #     for key, value in text_dict.items():
+        #         dfs[key] = pd.DataFrame({'text': value})
+        #     return dfs
+        title = remove_common(row['title'], do_remove_common)
+        # TODO: maybe try earliest/latest date, see which is most filled, etc.
+        try:
+            year = int(row['datePublished'][-4:])
+        except TypeError:
+            try:
+                year = int(row['articleDate'][-4:])
+            except TypeError:
+                year = 1993
+        # if year=='1994':
+        #     import pdb; pdb.set_trace()
+        for field in field_set:
+            abstract = row[field]
+            if isinstance(abstract, pd.Series):
+                if not isinstance(row[field].values[0], list) and not isinstance(row[field].values[0],
+                                                                                 str) and math.isnan(
+                    row[field].values[0]):
+                    continue;
+                abstract = " ".join(row[field].values[0])
+            if isinstance(abstract, str):
+                abstract = remove_common(abstract, do_remove_common)
+                all_person_text += " " + abstract
+
+        all_person_text = title + all_person_text
+        all_person_text = remove_common(all_person_text, do_remove_common)
+        list_of_words = remove_stop_words_and_do_stemming(all_person_text, do_stemming, do_remove_common)
+        if year in text_dict.keys():
+            text_dict[year].append(''.join(list_of_words))
+        else:
+            text_dict[year] = [list_of_words]
+
+    dfs = {}
+    for key, value in text_dict.items():
+        dfs[key] = pd.DataFrame({'text': value})
+    return dfs
