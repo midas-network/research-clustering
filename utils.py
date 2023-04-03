@@ -283,9 +283,10 @@ def build_corpus_words_only(field_set, do_stemming, do_remove_common):
 def build_corpus_words_only_by_year (field_set, do_stemming, do_remove_common):
     papers = pd.read_json('data_sources/papers.json')
     text_dict = {}
-    all_person_text = ""
+    word_to_paper_dict = {}
     # import pdb;pdb.set_trace()
     for index, row in papers.iterrows():
+        all_person_text = ""
         # if index > 100:
         #     dfs = {}
         #     for key, value in text_dict.items():
@@ -306,23 +307,33 @@ def build_corpus_words_only_by_year (field_set, do_stemming, do_remove_common):
             abstract = row[field]
             if isinstance(abstract, pd.Series):
                 if not isinstance(row[field].values[0], list) and not isinstance(row[field].values[0],
-                                                                                 str) and math.isnan(
-                    row[field].values[0]):
-                    continue;
+                                                                                 str) and math.isnan(row[field].values[0]): continue;
                 abstract = " ".join(row[field].values[0])
+            if isinstance(abstract, list):
+                abstract = ' '.join([item for item in row[field]])
             if isinstance(abstract, str):
                 abstract = remove_common(abstract, do_remove_common)
                 all_person_text += " " + abstract
 
+        if not isinstance(abstract, pd.Series) and not isinstance(abstract, str):
+            pass
+
         all_person_text = title + all_person_text
         all_person_text = remove_common(all_person_text, do_remove_common)
         list_of_words = remove_stop_words_and_do_stemming(all_person_text, do_stemming, do_remove_common)
+
         if year in text_dict.keys():
             text_dict[year].append(''.join(list_of_words))
         else:
             text_dict[year] = [list_of_words]
 
+        for word in list_of_words.split(' '):
+            if word in word_to_paper_dict.keys():
+                word_to_paper_dict[word].add(index)
+            else:
+                word_to_paper_dict[word] = {index}
+
     dfs = {}
     for key, value in text_dict.items():
         dfs[key] = pd.DataFrame({'text': value})
-    return dfs
+    return (dfs, word_to_paper_dict)

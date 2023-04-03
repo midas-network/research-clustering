@@ -54,7 +54,7 @@ def process_field(fields, count_type):
         counts.to_csv('counts.csv', index=False)
 
     elif count_type== '-b':
-        corpus_dfs = build_corpus_words_only_by_year(fields, do_stemming=True, do_remove_common=True)
+        corpus_dfs, word_to_paper_dict = build_corpus_words_only_by_year(fields, do_stemming=True, do_remove_common=True)
         # import pdb; pdb.set_trace()
         year_counts = []
         for year, df in corpus_dfs.items():
