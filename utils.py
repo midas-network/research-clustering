@@ -1,4 +1,6 @@
 import json
+from enum import Enum
+
 import math
 import re
 import string
@@ -8,8 +10,12 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 
 import pandas as pd;
+
+from UnstemMethod import UnstemMethod
+
 STEMDICT = {}
 stop_words = set(stopwords.words('english'))
+
 
 def remove_common(text, bypass):
     if not bypass:
@@ -173,12 +179,11 @@ def remove_common(text, bypass):
 
 
 def write_cluster_to_json(title, bins, features):
-    with open("data/people-with-clusters-"+title+".json", "w") as outfile:
+    with open("data/people-with-clusters-" + title + ".json", "w") as outfile:
         json.dump(bins, outfile)
 
     with open("data/cluster-info-" + title + ".json", "w") as outfile2:
         json.dump(features, outfile2)
-
 
 
 def build_corpus(field_set, do_stemming, do_remove_common):
@@ -201,7 +206,7 @@ def build_corpus(field_set, do_stemming, do_remove_common):
                     if isinstance(abstract, pd.Series):
                         if not isinstance(row[field].values[0], list) and not isinstance(row[field].values[0],
                                                                                          str) and math.isnan(
-                                row[field].values[0]):
+                            row[field].values[0]):
                             continue;
                         abstract = " ".join(row[field].values[0])
                     if isinstance(abstract, str):
@@ -222,6 +227,7 @@ def build_corpus(field_set, do_stemming, do_remove_common):
     })
     return df
 
+
 def remove_stop_words_and_do_stemming(unfiltered_text, do_stemming, do_remove_common):
     unfiltered_text = remove_common(unfiltered_text.translate(str.maketrans("", "", string.punctuation)),
                                     do_remove_common)
@@ -241,9 +247,36 @@ def remove_stop_words_and_do_stemming(unfiltered_text, do_stemming, do_remove_co
             root_word = w
             if do_stemming:
                 stem_word = ps.stem(root_word)
-                STEMDICT[stem_word] = root_word
+                if stem_word in STEMDICT:
+                    indiv_stem_word_dict = STEMDICT[stem_word]
+                else:
+                    indiv_stem_word_dict = {}
+                if root_word in indiv_stem_word_dict:
+                    indiv_stem_word_dict[root_word] += 1;
+                else:
+                    indiv_stem_word_dict[root_word] = 1;
+
+                STEMDICT[stem_word] = indiv_stem_word_dict
             stem_words.append(stem_word)
+
     return ' '.join(stem_words)
+
+
+def unstemword(stemmed_word, unstem_method=UnstemMethod.SELECT_MOST_FREQUENT):
+    if stemmed_word in STEMDICT:
+        indiv_stem_word_dict = STEMDICT[stemmed_word]
+        if unstem_method == UnstemMethod.SELECT_MOST_FREQUENT:
+            return max(indiv_stem_word_dict.items(), key=lambda x: x[1])[0]
+        elif unstem_method == UnstemMethod.SELECT_SHORTEST:
+            return (min(indiv_stem_word_dict, key=len))
+
+        elif unstem_method == UnstemMethod.SELECT_LONGEST:
+            return (max(indiv_stem_word_dict, key=len))
+        else:
+            raise Exception("unsupported UnstemMethod")
+
+    else:
+        raise Exception("stemmed_word does not exist in STEMDICT")
 
 
 def build_corpus_words_only(field_set, do_stemming, do_remove_common):
@@ -280,7 +313,7 @@ def build_corpus_words_only(field_set, do_stemming, do_remove_common):
     return df
 
 
-def build_corpus_words_only_by_year (field_set, do_stemming, do_remove_common):
+def build_corpus_words_only_by_year(field_set, do_stemming, do_remove_common):
     papers = pd.read_json('data_sources/papers.json')
     text_dict = {}
     all_person_text = ""
