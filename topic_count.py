@@ -2,10 +2,11 @@ import pandas as pd
 import numpy as np
 import sys
 import itertools
+import json
 
 from sklearn.feature_extraction.text import CountVectorizer
 
-from utils import build_corpus_words_only, build_corpus_words_only_by_year
+from utils import build_corpus_words_only, build_corpus_words_only_by_year, get_papers_per_word, unstemword
 
 n_features = 100000
 n_top_words = 20
@@ -54,7 +55,7 @@ def process_field(fields, count_type):
         counts.to_csv('counts.csv', index=False)
 
     elif count_type== '-b':
-        corpus_dfs, word_to_paper_dict = build_corpus_words_only_by_year(fields, do_stemming=True, do_remove_common=True)
+        corpus_dfs = build_corpus_words_only_by_year(fields, do_stemming=True, do_remove_common=True)
         # import pdb; pdb.set_trace()
         year_counts = []
         for year, df in corpus_dfs.items():
@@ -84,10 +85,38 @@ def process_field(fields, count_type):
             full_count = pd.concat([full_count, year_counts[i]])
 
         full_count = full_count.rename(columns={0:'topic',1:'count'})
+        final_word_list = full_count.copy()
         full_count = full_count.sort_values(by=['year', 'topic'], ascending=[True, True])
         all_topics_df = fill_topic_df(full_count)
         print(all_topics_df)
+
+
+        # TODO:Find papers per word using new util function
+        paper_dict = get_papers_per_word(fields, final_word_list,do_stemming=True, do_remove_common=True)
+
+        # TODO:Unstem words using unstemword() from utils
+        topic_list = full_count['topic'].tolist()
+        unstemmed_paper_dict = {}
+        for topic in topic_list:
+            if len(topic.split(' ')) > 1:
+                unstemmed = ''
+                for single_word in topic.split(' '):
+                    unstemmed += unstemword(single_word) + ' '
+                unstemmed_topic = unstemmed[:-1]
+            else:
+                unstemmed_topic = unstemword(topic)
+
+            all_topics_df.loc[all_topics_df['topic']==topic, 'topic']=unstemmed_topic
+            for year, words in paper_dict.items():
+                for word in words.keys():
+                    if word == topic:
+                        if year not in unstemmed_paper_dict.keys():
+                            unstemmed_paper_dict[year] = {}
+                        unstemmed_paper_dict[year][unstemmed_topic] = words[word]
+
         all_topics_df.to_csv('year_counts_full.csv', index=False)
+        with open('papers_per_word_full.json', 'w') as fp:
+            fp.write(json.dumps(unstemmed_paper_dict, indent=4))
 
 
 def main(count_type):

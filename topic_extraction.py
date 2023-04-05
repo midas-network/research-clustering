@@ -9,9 +9,9 @@ import pandas as pd
 
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.decomposition import NMF, MiniBatchNMF, LatentDirichletAllocation
-from sklearn.datasets import fetch_20newsgroups
 
-from tf_idf_sci import build_corpus, FIELDS, STEMDICT, write_cluster_to_json, plot_sil
+from tf_idf_sci import build_corpus, FIELDS, plot_sil
+from utils import STEMDICT, write_cluster_to_json
 
 n_samples = 2000
 n_features = 100000

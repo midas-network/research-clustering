@@ -1,4 +1,6 @@
 import json
+from enum import Enum
+
 import math
 import re
 import string
@@ -8,8 +10,12 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 
 import pandas as pd;
+
+from UnstemMethod import UnstemMethod
+
 STEMDICT = {}
 stop_words = set(stopwords.words('english'))
+
 
 def remove_common(text, bypass):
     if not bypass:
@@ -169,16 +175,17 @@ def remove_common(text, bypass):
     text = re.sub(r'public heal[a-z]*', '', text)
     text = re.sub(r'mathemati[a-z]*', '', text)
     text = re.sub(r'estima[a-z]*', '', text)
+    text = re.sub(r',', '', text)
+    text = re.sub(r'\s+', ' ', text)
     return text
 
 
 def write_cluster_to_json(title, bins, features):
-    with open("data/people-with-clusters-"+title+".json", "w") as outfile:
+    with open("data/people-with-clusters-" + title + ".json", "w") as outfile:
         json.dump(bins, outfile)
 
     with open("data/cluster-info-" + title + ".json", "w") as outfile2:
         json.dump(features, outfile2)
-
 
 
 def build_corpus(field_set, do_stemming, do_remove_common):
@@ -201,7 +208,7 @@ def build_corpus(field_set, do_stemming, do_remove_common):
                     if isinstance(abstract, pd.Series):
                         if not isinstance(row[field].values[0], list) and not isinstance(row[field].values[0],
                                                                                          str) and math.isnan(
-                                row[field].values[0]):
+                            row[field].values[0]):
                             continue;
                         abstract = " ".join(row[field].values[0])
                     if isinstance(abstract, str):
@@ -222,6 +229,7 @@ def build_corpus(field_set, do_stemming, do_remove_common):
     })
     return df
 
+
 def remove_stop_words_and_do_stemming(unfiltered_text, do_stemming, do_remove_common):
     unfiltered_text = remove_common(unfiltered_text.translate(str.maketrans("", "", string.punctuation)),
                                     do_remove_common)
@@ -241,9 +249,38 @@ def remove_stop_words_and_do_stemming(unfiltered_text, do_stemming, do_remove_co
             root_word = w
             if do_stemming:
                 stem_word = ps.stem(root_word)
-                STEMDICT[stem_word] = root_word
+                if stem_word in STEMDICT:
+                    indiv_stem_word_dict = STEMDICT[stem_word]
+                else:
+                    indiv_stem_word_dict = {}
+                if root_word in indiv_stem_word_dict:
+                    indiv_stem_word_dict[root_word] += 1;
+                else:
+                    indiv_stem_word_dict[root_word] = 1;
+
+                STEMDICT[stem_word] = indiv_stem_word_dict
             stem_words.append(stem_word)
+
     return ' '.join(stem_words)
+
+
+def unstemword(stemmed_word, unstem_method=UnstemMethod.SELECT_MOST_FREQUENT):
+    if stemmed_word in STEMDICT:
+        indiv_stem_word_dict = STEMDICT[stemmed_word]
+        if unstem_method == UnstemMethod.SELECT_MOST_FREQUENT:
+            return max(indiv_stem_word_dict.items(), key=lambda x: x[1])[0]
+        elif unstem_method == UnstemMethod.SELECT_SHORTEST:
+            return (min(indiv_stem_word_dict, key=len))
+
+        elif unstem_method == UnstemMethod.SELECT_LONGEST:
+            return (max(indiv_stem_word_dict, key=len))
+        else:
+            raise Exception("unsupported UnstemMethod")
+
+    else:
+        # raise Exception("stemmed_word does not exist in STEMDICT")
+        print("stemmed_word does not exist in STEMDICT")
+        return stemmed_word
 
 
 def build_corpus_words_only(field_set, do_stemming, do_remove_common):
@@ -251,11 +288,11 @@ def build_corpus_words_only(field_set, do_stemming, do_remove_common):
     text_list = []
     all_person_text = ""
     for index, row in papers.iterrows():
-        # if index > 100:
-        #     df = pd.DataFrame({
-        #         'text': text_list
-        #     })
-        #     return df
+        if index > 100:
+            df = pd.DataFrame({
+                'text': text_list
+            })
+            return df
         title = remove_common(row['title'], do_remove_common)
         for field in field_set:
             abstract = row[field]
@@ -280,7 +317,7 @@ def build_corpus_words_only(field_set, do_stemming, do_remove_common):
     return df
 
 
-def build_corpus_words_only_by_year (field_set, do_stemming, do_remove_common):
+def build_corpus_words_only_by_year(field_set, do_stemming, do_remove_common):
     papers = pd.read_json('data_sources/papers.json')
     text_dict = {}
     word_to_paper_dict = {}
@@ -301,8 +338,8 @@ def build_corpus_words_only_by_year (field_set, do_stemming, do_remove_common):
                 year = int(row['articleDate'][-4:])
             except TypeError:
                 year = 1993
-        # if year=='1994':
-        #     import pdb; pdb.set_trace()
+        if year < 2010:
+            continue
         for field in field_set:
             abstract = row[field]
             if isinstance(abstract, pd.Series):
@@ -310,13 +347,10 @@ def build_corpus_words_only_by_year (field_set, do_stemming, do_remove_common):
                                                                                  str) and math.isnan(row[field].values[0]): continue;
                 abstract = " ".join(row[field].values[0])
             if isinstance(abstract, list):
-                abstract = ' '.join([item for item in row[field]])
+                abstract = " ".join([item for item in row[field]])
             if isinstance(abstract, str):
                 abstract = remove_common(abstract, do_remove_common)
                 all_person_text += " " + abstract
-
-        if not isinstance(abstract, pd.Series) and not isinstance(abstract, str):
-            pass
 
         all_person_text = title + all_person_text
         all_person_text = remove_common(all_person_text, do_remove_common)
@@ -327,13 +361,61 @@ def build_corpus_words_only_by_year (field_set, do_stemming, do_remove_common):
         else:
             text_dict[year] = [list_of_words]
 
-        for word in list_of_words.split(' '):
-            if word in word_to_paper_dict.keys():
-                word_to_paper_dict[word].add(index)
-            else:
-                word_to_paper_dict[word] = {index}
-
     dfs = {}
     for key, value in text_dict.items():
         dfs[key] = pd.DataFrame({'text': value})
-    return (dfs, word_to_paper_dict)
+    return dfs
+
+def get_papers_per_word(field_set, final_word_list, do_stemming, do_remove_common):
+    papers = pd.read_json('data_sources/papers.json')
+    paper_dict = {}
+
+    for index, row in papers.iterrows():
+        all_person_text = ""
+        # if index > 100:
+        #     dfs = {}
+        #     for key, value in text_dict.items():
+        #         dfs[key] = pd.DataFrame({'text': value})
+        #     return paper_dict
+        title = remove_common(row['title'], do_remove_common)
+        try:
+            year = int(row['datePublished'][-4:])
+        except TypeError:
+            try:
+                year = int(row['articleDate'][-4:])
+            except TypeError:
+                year = 1993
+        if year < 2010:
+            continue
+
+        for field in field_set:
+            abstract = row[field]
+            if isinstance(abstract, pd.Series):
+                if not isinstance(row[field].values[0], list) and not isinstance(row[field].values[0],
+                                                                                 str) and math.isnan(row[field].values[0]): continue;
+                abstract = " ".join(row[field].values[0])
+            if isinstance(abstract, list):
+                abstract = " ".join([item for item in row[field]])
+            if isinstance(abstract, str):
+                abstract = remove_common(abstract, do_remove_common)
+                all_person_text += " " + abstract
+
+        all_person_text = title + all_person_text
+        all_person_text = remove_common(all_person_text, do_remove_common)
+        list_of_words = remove_stop_words_and_do_stemming(all_person_text, do_stemming, do_remove_common)
+
+        # for word in list_of_words.split(' '):
+        #     if not final_word_list.loc[(final_word_list['year']==year) & (final_word_list['topic']==word)].empty:
+        for word in final_word_list.loc[final_word_list['year']==year, 'topic'].tolist():
+            if word in list_of_words:
+                if year in paper_dict.keys():
+                    if word in paper_dict[year].keys():
+                        if index not in paper_dict[year][word]:
+                            paper_dict[year][word].append({'title': row['title'], 'uri': row['uri']})
+                    else:
+                        paper_dict[year][word] = [{'title': row['title'], 'uri': row['uri']}]
+                else:
+                    paper_dict[year] = {}
+                    paper_dict[year][word] = [{'title': row['title'], 'uri': row['uri']}]
+
+    return paper_dict
