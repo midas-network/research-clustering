@@ -304,9 +304,10 @@ def build_corpus_words_only(field_set, do_stemming, do_remove_common):
                 abstract = " ".join(row[field].values[0])
             if isinstance(abstract, str):
                 abstract = remove_common(abstract, do_remove_common)
-                all_person_text += " " + abstract
+                all_person_text += " " + abstract + " "
 
-        all_person_text = title + all_person_text
+        if 'paperAbstract' in field_set:
+            all_person_text = title + all_person_text
         all_person_text = remove_common(all_person_text, do_remove_common)
         list_of_words = remove_stop_words_and_do_stemming(all_person_text, do_stemming, do_remove_common)
         text_list.append(''.join(list_of_words))
@@ -417,5 +418,9 @@ def get_papers_per_word(field_set, final_word_list, do_stemming, do_remove_commo
                 else:
                     paper_dict[year] = {}
                     paper_dict[year][word] = [{'title': row['title'], 'uri': row['uri']}]
+
+        if year==2017 and 'control' in list_of_words:
+            with open('papers_w_child_2015.txt', 'a') as f:
+                f.write(list_of_words + '\n')
 
     return paper_dict

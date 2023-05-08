@@ -31,7 +31,7 @@ def fill_topic_df(full_count):
 
     return all_topics_df
 
-def process_field(fields, count_type):
+def process_field(fields, ngram_count, count_type):
     print("Loading dataset...")
     if count_type== '-a':
         corpus_df = build_corpus_words_only(fields, do_stemming=True, do_remove_common=True)
@@ -64,12 +64,12 @@ def process_field(fields, count_type):
             data = df["text"].tolist()
             try:
                 count_vectorizer = CountVectorizer(
-                    max_df=0.95, min_df=2, max_features=n_features, stop_words="english", ngram_range=(1, 4)
+                    max_df=0.95, min_df=2, max_features=n_features, stop_words="english", ngram_range=(ngram_count[0], ngram_count[1]), binary=True
                 )
                 count_data = count_vectorizer.fit_transform(data)
             except ValueError:
                 count_vectorizer = CountVectorizer(
-                    max_features=n_features, stop_words="english", ngram_range=(1, 4)
+                    max_features=n_features, stop_words="english", ngram_range=(ngram_count[0], ngram_count[1])
                 )
                 count_data = count_vectorizer.fit_transform(data)
             counts = pd.DataFrame(
@@ -114,13 +114,19 @@ def process_field(fields, count_type):
                             unstemmed_paper_dict[year] = {}
                         unstemmed_paper_dict[year][unstemmed_topic] = words[word]
 
-        all_topics_df.to_csv('year_counts_full.csv', index=False)
-        with open('papers_per_word_full.json', 'w') as fp:
+        count_filename = fields[0] + '-ngram_' + str(ngram_count[0]) + '-counts.csv'
+        paper_filename = fields[0] + '-ngram_' + str(ngram_count[0]) + '-papers.json'
+        all_topics_df.to_csv('output/' + count_filename, index=False)
+        with open('output/' + paper_filename, 'w') as fp:
             fp.write(json.dumps(unstemmed_paper_dict, indent=4))
 
 
 def main(count_type):
-    process_field({"meshTerms"}, count_type)
+    # fields = ["meshTerms"]
+    # fields = ["pubmedKeywords"]
+    fields = ["paperAbstract"]
+    ngram_count = [1,1]
+    process_field(fields, ngram_count, count_type)
 
 
 if __name__ == "__main__":
