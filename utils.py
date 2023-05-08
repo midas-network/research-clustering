@@ -1,4 +1,5 @@
 import json
+import os
 from enum import Enum
 
 import math
@@ -323,6 +324,7 @@ def build_corpus_words_only_by_year(field_set, do_stemming, do_remove_common):
     text_dict = {}
     word_to_paper_dict = {}
     # import pdb;pdb.set_trace()
+
     for index, row in papers.iterrows():
         all_person_text = ""
         # if index > 100:
@@ -339,13 +341,14 @@ def build_corpus_words_only_by_year(field_set, do_stemming, do_remove_common):
                 year = int(row['articleDate'][-4:])
             except TypeError:
                 year = 1993
-        if year < 2010:
+        if year != 2013:
             continue
         for field in field_set:
             abstract = row[field]
             if isinstance(abstract, pd.Series):
                 if not isinstance(row[field].values[0], list) and not isinstance(row[field].values[0],
-                                                                                 str) and math.isnan(row[field].values[0]): continue;
+                                                                                 str) and math.isnan(
+                    row[field].values[0]): continue;
                 abstract = " ".join(row[field].values[0])
             if isinstance(abstract, list):
                 abstract = " ".join([item for item in row[field]])
@@ -355,6 +358,8 @@ def build_corpus_words_only_by_year(field_set, do_stemming, do_remove_common):
 
         all_person_text = title + all_person_text
         all_person_text = remove_common(all_person_text, do_remove_common)
+
+     
         list_of_words = remove_stop_words_and_do_stemming(all_person_text, do_stemming, do_remove_common)
 
         if year in text_dict.keys():
@@ -367,60 +372,73 @@ def build_corpus_words_only_by_year(field_set, do_stemming, do_remove_common):
         dfs[key] = pd.DataFrame({'text': value})
     return dfs
 
+
 def get_papers_per_word(field_set, final_word_list, do_stemming, do_remove_common):
     papers = pd.read_json('data_sources/papers.json')
     paper_dict = {}
 
-    for index, row in papers.iterrows():
-        all_person_text = ""
+    search_year = 2013
+    search_word = 'import'
+    filename = str(search_year) + '_w_' + search_word + '.txt'
+    ## delete the file if it exists
+    if os.path.exists(filename):
+        os.remove(filename)
+
+    for paper_idx, paper in papers.iterrows():
+        all_content_text_for_paper = ""
         # if index > 100:
         #     dfs = {}
         #     for key, value in text_dict.items():
         #         dfs[key] = pd.DataFrame({'text': value})
         #     return paper_dict
-        title = remove_common(row['title'], do_remove_common)
+
         try:
-            year = int(row['datePublished'][-4:])
+            year = int(paper['datePublished'][-4:])
         except TypeError:
             try:
-                year = int(row['articleDate'][-4:])
+                year = int(paper['articleDate'][-4:])
             except TypeError:
                 year = 1993
-        if year < 2010:
+        if year != 2013:
             continue
 
         for field in field_set:
-            abstract = row[field]
-            if isinstance(abstract, pd.Series):
-                if not isinstance(row[field].values[0], list) and not isinstance(row[field].values[0],
-                                                                                 str) and math.isnan(row[field].values[0]): continue;
-                abstract = " ".join(row[field].values[0])
-            if isinstance(abstract, list):
-                abstract = " ".join([item for item in row[field]])
-            if isinstance(abstract, str):
-                abstract = remove_common(abstract, do_remove_common)
-                all_person_text += " " + abstract
+            field_content = paper[field]
+            if isinstance(field_content, pd.Series):
+                if not isinstance(paper[field].values[0], list) and not isinstance(paper[field].values[0],
+                                                                                   str) and math.isnan(
+                    paper[field].values[0]): continue;
+                field_content = " ".join(paper[field].values[0])
+            if isinstance(field_content, list):
+                field_content = " ".join([item for item in paper[field]])
+            if isinstance(field_content, str):
+                field_content = remove_common(field_content, do_remove_common)
+                all_content_text_for_paper += " " + field_content
 
-        all_person_text = title + all_person_text
-        all_person_text = remove_common(all_person_text, do_remove_common)
-        list_of_words = remove_stop_words_and_do_stemming(all_person_text, do_stemming, do_remove_common)
+        title = remove_common(paper['title'], do_remove_common)
+        all_content_text_for_paper = title + all_content_text_for_paper
+
+        all_content_text_for_paper = remove_common(all_content_text_for_paper, do_remove_common)
+        list_of_words = remove_stop_words_and_do_stemming(all_content_text_for_paper, do_stemming, do_remove_common)
 
         # for word in list_of_words.split(' '):
         #     if not final_word_list.loc[(final_word_list['year']==year) & (final_word_list['topic']==word)].empty:
-        for word in final_word_list.loc[final_word_list['year']==year, 'topic'].tolist():
-            if word in list_of_words:
+        for word in final_word_list.loc[final_word_list['year'] == year, 'topic'].tolist():
+            if word in list_of_words.split(" "):
                 if year in paper_dict.keys():
                     if word in paper_dict[year].keys():
-                        if index not in paper_dict[year][word]:
-                            paper_dict[year][word].append({'title': row['title'], 'uri': row['uri']})
+                        # if paper_idx not in paper_dict[year][word]:
+                        paper_dict[year][word].append({'title': paper['title'], 'uri': paper['uri']})
                     else:
-                        paper_dict[year][word] = [{'title': row['title'], 'uri': row['uri']}]
+                        paper_dict[year][word] = [{'title': paper['title'], 'uri': paper['uri']}]
                 else:
                     paper_dict[year] = {}
-                    paper_dict[year][word] = [{'title': row['title'], 'uri': row['uri']}]
+                    paper_dict[year][word] = [{'title': paper['title'], 'uri': paper['uri']}]
 
-        if year==2017 and 'control' in list_of_words:
-            with open('papers_w_child_2015.txt', 'a') as f:
-                f.write(list_of_words + '\n')
+
+
+        if search_year == year and search_word in list_of_words.split(" "):
+            with open(filename, 'a') as f:
+                f.write(str(paper_idx) + ": " + list_of_words + '\n')
 
     return paper_dict

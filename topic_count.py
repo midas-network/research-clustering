@@ -59,25 +59,22 @@ def process_field(fields, ngram_count, count_type):
         # import pdb; pdb.set_trace()
         year_counts = []
         for year, df in corpus_dfs.items():
-            if int(year) < 2010:
+            if int(year) < 2013 or int(year) > 2013:
                  continue
             data = df["text"].tolist()
-            try:
-                count_vectorizer = CountVectorizer(
-                    max_df=0.95, min_df=2, max_features=n_features, stop_words="english", ngram_range=(ngram_count[0], ngram_count[1]), binary=True
-                )
-                count_data = count_vectorizer.fit_transform(data)
-            except ValueError:
-                count_vectorizer = CountVectorizer(
-                    max_features=n_features, stop_words="english", ngram_range=(ngram_count[0], ngram_count[1])
-                )
-                count_data = count_vectorizer.fit_transform(data)
+
+            count_vectorizer = CountVectorizer(
+                max_df=1.0, min_df=1, max_features=n_features, stop_words="english", ngram_range=(ngram_count[0], ngram_count[1]), binary=True
+            )
+            count_data = count_vectorizer.fit_transform(data)
+
+
             counts = pd.DataFrame(
                 list(zip(count_vectorizer.get_feature_names_out(),
                         count_data.sum(axis=0).tolist()[0])))\
                 .sort_values(1,ascending=False)
             counts.insert(0, 'year', year)
-            year_counts.append(counts[0:19])
+            year_counts.append(counts[0:1000])
             # year_counts.append(counts)
 
         full_count = year_counts[0].copy()
@@ -112,7 +109,10 @@ def process_field(fields, ngram_count, count_type):
                     if word == topic:
                         if year not in unstemmed_paper_dict.keys():
                             unstemmed_paper_dict[year] = {}
-                        unstemmed_paper_dict[year][unstemmed_topic] = words[word]
+                        if topic not in unstemmed_paper_dict[year].keys():
+                            unstemmed_paper_dict[year][topic] = {}
+
+                        unstemmed_paper_dict[year][topic][unstemmed_topic] = words[word]
 
         count_filename = fields[0] + '-ngram_' + str(ngram_count[0]) + '-counts.csv'
         paper_filename = fields[0] + '-ngram_' + str(ngram_count[0]) + '-papers.json'
