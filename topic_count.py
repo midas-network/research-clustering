@@ -1,70 +1,56 @@
 import pandas as pd
 import numpy as np
-import sys
 import itertools
 import json
 
 from sklearn.feature_extraction.text import CountVectorizer
 
-from utils import build_corpus_words_only, build_corpus_words_only_by_year, get_papers_per_word, unstemword
+from utils import build_corpus_words_by_year, get_papers_per_word, unstemword
+from fields import Fields
 
 n_features = 100000
 n_top_words = 20
 
 
 def fill_topic_df(full_count):
-    year_range = [*range(min(full_count['year']),max(full_count['year'])+1)]
+    year_range = [*range(min(full_count['date']),max(full_count['date'])+1)]
     topic_list = pd.unique(full_count['topic'])
 
-    all_topics_df = pd.DataFrame(columns=['year', 'topic'], data=list(itertools.product(year_range, topic_list)))
+    all_topics_df = pd.DataFrame(columns=['date', 'topic'], data=list(itertools.product(year_range, topic_list)))
     all_topics_df.insert(2, 'count', 0)
 
     # all_topics_df['count'] = all_topics_df['count'].map(full_count.set_index('year')['year'])
-    all_topics_df.set_index(['year','topic'],inplace=True)
-    all_topics_df.update(full_count.set_index(['year','topic']))
+    all_topics_df.set_index(['date','topic'],inplace=True)
+    all_topics_df.update(full_count.set_index(['date','topic']))
     all_topics_df.reset_index(drop=False,inplace=True)
     all_topics_df['count'] = all_topics_df['count'].astype(int)
-    all_topics_df['year'] = all_topics_df['year'].astype(str) + "/1/1"
+    all_topics_df['date'] = all_topics_df['date'].astype(str) + "/1/1"
 
-    all_topics_df = all_topics_df.sort_values(by=['topic', 'year'], ascending=[True, True])
+    all_topics_df = all_topics_df.sort_values(by=['topic', 'date'], ascending=[True, True])
     print(all_topics_df)
 
     return all_topics_df
 
-def process_field(fields, ngram_count, count_type):
+def process_field(field, ngram_count, min_year, max_year):
     print("Loading dataset...")
-    if count_type== '-a':
-        corpus_df = build_corpus_words_only(fields, do_stemming=True, do_remove_common=True)
-        import pdb; pdb.set_trace()
-        data = corpus_df["text"].tolist()
-        count_vectorizer = CountVectorizer(
-            max_df=0.95, min_df=2, max_features=n_features, stop_words="english", ngram_range=(1, 4)
-        )
-        count_data = count_vectorizer.fit_transform(data)
-        print(count_data)
-        counts = pd.DataFrame(
-            list(zip(count_vectorizer.get_feature_names_out(),
-                    count_data.sum(axis=0).tolist()[0])))\
-            .sort_values(1,ascending=False)
 
-        for i in range(1, 20):
-            s = counts.iloc[:, i]
-            counts['tick' + str(i)] = np.random.normal(s, 10)
-            counts['tick' + str(i)] = counts['tick' + str(i)].astype(int)
-
-        counts.to_csv('counts.csv', index=False)
-
-    elif count_type== '-b':
-        corpus_dfs = build_corpus_words_only_by_year(fields, do_stemming=True, do_remove_common=True)
-        # import pdb; pdb.set_trace()
-        year_counts = []
-        for year, df in corpus_dfs.items():
-            if int(year) < 2013 or int(year) > 2013:
-                 continue
+    corpus_dfs = build_corpus_words_by_year(field, ngram_count, min_year, max_year, do_stemming=True, do_remove_common=True)
+    year_counts = []
+    for year, df in corpus_dfs.items():
+        if int(year) < min_year or int(year) > max_year:
+                continue
+        if field == Fields.MESH_TERM:
+            sorted_word_list = sorted(df.items(), key=lambda x:x[1], reverse=True)
+            data = dict(sorted_word_list[0:19])
+            counts = pd.DataFrame.from_dict(data.items())
+            counts.insert(0,'date',year)
+            year_counts.append(counts)
+            
+        else:
             data = df["text"].tolist()
 
             count_vectorizer = CountVectorizer(
-                max_df=1.0, min_df=1, max_features=n_features, stop_words="english", ngram_range=(ngram_count[0], ngram_count[1]), binary=True
+                max_df=1.0, min_df=1, max_features=n_features, stop_words="english", ngram_range=(ngram_count, ngram_count), binary=True
             )
             count_data = count_vectorizer.fit_transform(data)
 
@@ -73,26 +59,23 @@ def process_field(fields, ngram_count, count_type):
                 list(zip(count_vectorizer.get_feature_names_out(),
                         count_data.sum(axis=0).tolist()[0])))\
                 .sort_values(1,ascending=False)
-            counts.insert(0, 'year', year)
-            year_counts.append(counts[0:1000])
-            # year_counts.append(counts)
+            counts.insert(0, 'date', year)
+            year_counts.append(counts[0:19])
 
-        full_count = year_counts[0].copy()
-        for i in range(1,len(year_counts)-1):
-            full_count = pd.concat([full_count, year_counts[i]])
+    full_count = year_counts[0].copy()
+    for i in range(1,len(year_counts)-1):
+        full_count = pd.concat([full_count, year_counts[i]])
 
-        full_count = full_count.rename(columns={0:'topic',1:'count'})
-        final_word_list = full_count.copy()
-        full_count = full_count.sort_values(by=['year', 'topic'], ascending=[True, True])
-        all_topics_df = fill_topic_df(full_count)
-        print(all_topics_df)
+    full_count = full_count.rename(columns={0:'topic',1:'count'})
+    final_word_list = full_count.copy()
+    full_count = full_count.sort_values(by=['date', 'topic'], ascending=[True, True])
+    all_topics_df = fill_topic_df(full_count)
+    print(all_topics_df)
 
+    paper_dict = get_papers_per_word(field, final_word_list, min_year, max_year, do_stemming=True, do_remove_common=True)
 
-        # TODO:Find papers per word using new util function
-        paper_dict = get_papers_per_word(fields, final_word_list,do_stemming=True, do_remove_common=True)
-
-        # TODO:Unstem words using unstemword() from utils
-        topic_list = full_count['topic'].tolist()
+    topic_list = full_count['topic'].tolist()
+    if field != Fields.MESH_TERM:
         unstemmed_paper_dict = {}
         for topic in topic_list:
             if len(topic.split(' ')) > 1:
@@ -109,26 +92,37 @@ def process_field(fields, ngram_count, count_type):
                     if word == topic:
                         if year not in unstemmed_paper_dict.keys():
                             unstemmed_paper_dict[year] = {}
-                        if topic not in unstemmed_paper_dict[year].keys():
-                            unstemmed_paper_dict[year][topic] = {}
+                        if unstemmed_topic not in unstemmed_paper_dict[year].keys():
+                            unstemmed_paper_dict[year][unstemmed_topic] = []
 
-                        unstemmed_paper_dict[year][topic][unstemmed_topic] = words[word]
+                        unstemmed_paper_dict[year][unstemmed_topic] = words[word]
+    else:
+        unstemmed_paper_dict = paper_dict
 
-        count_filename = fields[0] + '-ngram_' + str(ngram_count[0]) + '-counts.csv'
-        paper_filename = fields[0] + '-ngram_' + str(ngram_count[0]) + '-papers.json'
-        all_topics_df.to_csv('output/' + count_filename, index=False)
-        with open('output/' + paper_filename, 'w') as fp:
-            fp.write(json.dumps(unstemmed_paper_dict, indent=4))
+    count_filename = field.value + '-ngram_' + str(ngram_count) + '-counts.csv'
+    paper_filename = field.value + '-ngram_' + str(ngram_count) + '-papers.json'
+    all_topics_df.to_csv('output/' + count_filename, index=False)
+    with open('output/' + paper_filename, 'w') as fp:
+        fp.write(json.dumps(unstemmed_paper_dict, indent=4))
 
 
-def main(count_type):
-    # fields = ["meshTerms"]
-    # fields = ["pubmedKeywords"]
-    fields = ["paperAbstract"]
-    ngram_count = [1,1]
-    process_field(fields, ngram_count, count_type)
+def main():
+    do_all = True
+    min_year = 2010
+    max_year = 2023
+    if do_all:
+        fields = [Fields.ABSTRACT, Fields.PUBMED_KEYWORD]
+        for field in fields:
+           process_field(field, 1, min_year, max_year)
+           process_field(field, 2, min_year, max_year)
+           process_field(field, 3, min_year, max_year)
+        process_field(Fields.MESH_TERM, 1, min_year, max_year)
+    else:
+        field = Fields.ABSTRACT
+        ngram_count = 1
+        process_field(field, ngram_count, min_year, max_year)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main()
     quit()
