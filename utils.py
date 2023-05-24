@@ -213,6 +213,7 @@ def remove_common(text, ngram_count, bypass):
         text = re.sub(r'effect[a-z]*', '', text)
         text = re.sub(r'evalutat[a-z]*', '', text)
         text = re.sub(r'general[a-z]*', '', text)
+        text = re.sub(r'give[a-z]*', '', text)
         text = re.sub(r'group', '', text)
         text = re.sub(r'high[a-z]*', '', text)
         text = re.sub(r'however', '', text)
@@ -224,7 +225,12 @@ def remove_common(text, ngram_count, bypass):
         text = re.sub(r'increase[a-z]*', '', text)
         text = re.sub(r'indicate', '', text)
         text = re.sub(r'individual[a-z]*', '', text)
+        text = re.sub(r'inform[a-z]*', '', text)
+        text = re.sub(r'initial', '', text)
+        text = re.sub(r'insight[a-z]*', '', text)
+        text = re.sub(r'interpret[a-z]*', '', text)
         text = re.sub(r'investigat[a-z]*', '', text)
+        text = re.sub(r'involve[a-z]*', '', text)
         text = re.sub(r'large', '', text)
         text = re.sub(r'level', '', text)
         text = re.sub(r'likely', '', text)
@@ -252,8 +258,10 @@ def remove_common(text, ngram_count, bypass):
         text = re.sub(r'remain[a-z]*', '', text)
         text = re.sub(r'report[a-z]*', '', text)
         text = re.sub(r'response', '', text)
+        text = re.sub(r'reveal[a-z]*', '', text)
         text = re.sub(r'sample[a-z]*', '', text)
         text = re.sub(r'setting[a-z]*', '', text)
+        text = re.sub(r'set\b', '', text)
         text = re.sub(r'severe', '', text)
         text = re.sub(r'significant', '', text)
         text = re.sub(r'suggest[a-z]*', '', text)
@@ -339,6 +347,71 @@ def remove_common(text, ngram_count, bypass):
         text = re.sub(r'support', '', text)
         text = re.sub(r'type[s]?', '', text)
         text = re.sub(r'vary[a-z]*', '', text)
+        text = re.sub(r'account[s]?', '', text)
+        text = re.sub(r'allow[a-z]*', '', text)
+        text = re.sub(r'analys[a-z]*', '', text)
+        text = re.sub(r'analyz[a-z]*', '', text)
+        text = re.sub(r'appli[a-z]*', '', text)
+        text = re.sub(r'apply[a-z]*', '', text)
+        text = re.sub(r'area[s]?', '', text)
+        text = re.sub(r'better', '', text)
+        text = re.sub(r'challeng[a-z]*', '', text)
+        text = re.sub(r'character[a-z]*', '', text)
+        text = re.sub(r'child[a-z]*', '', text)
+        text = re.sub(r'compar[a-z]*', '', text)
+        text = re.sub(r'complex', '', text)
+        text = re.sub(r'confirm[a-z]*', '', text)
+        text = re.sub(r'contact[a-z]*', '', text)
+        text = re.sub(r'continu[a-z]*', '', text)
+        text = re.sub(r'contribut[a-z]*', '', text)
+        text = re.sub(r'cost[a-z]*', '', text)
+        text = re.sub(r'death[s]?', '', text)
+        text = re.sub(r'decreas[a-z]*', '', text)
+        text = re.sub(r'detect[a-z]*', '', text)
+        text = re.sub(r'direct[a-z]*', '', text)
+        text = re.sub(r'discuss[a-z]*', '', text)
+        text = re.sub(r'early', '', text)
+        text = re.sub(r'effort[s]?', '', text)
+        text = re.sub(r'exist[a-z]*', '', text)
+        text = re.sub(r'explor[a-z]*', '', text)
+        text = re.sub(r'framework[s]?', '', text)
+        text = re.sub(r'future[s]?', '', text)
+        text = re.sub(r'global', '', text)
+        text = re.sub(r'great[a-z]*', '', text)
+        text = re.sub(r'help[a-z]*', '', text)
+        text = re.sub(r'increas[a-z]*', '', text)
+        text = re.sub(r'infect[a-z]*', '', text)
+        text = re.sub(r'interact[a-z]*', '', text)
+        text = re.sub(r'know[a-z]*', '', text)
+        text = re.sub(r'local[a-z]*', '', text)
+        text = re.sub(r'mechanism[s]?', '', text)
+        text = re.sub(r'month[a-z]*', '', text)
+        text = re.sub(r'national', '', text)
+        text = re.sub(r'obtain[a-z]*', '', text)
+        text = re.sub(r'optimal', '', text)
+        text = re.sub(r'possib[a-z]*', '', text)
+        text = re.sub(r'primary', '', text)
+        text = re.sub(r'program[a-z]*', '', text)
+        text = re.sub(r'proportion[a-z]*', '', text)
+        text = re.sub(r'propos[a-z]*', '', text)
+        text = re.sub(r'scale[s]?', '', text)
+        text = re.sub(r'single\b', '', text)
+        text = re.sub(r'size[s]?', '', text)
+        text = re.sub(r'small[a-z]*', '', text)
+        text = re.sub(r'source[a-z]*', '', text)
+        text = re.sub(r'state[s]?', '', text)
+        text = re.sub(r'substantial', '', text)
+        text = re.sub(r'target[a-z]*', '', text)
+        text = re.sub(r'thus', '', text)
+        text = re.sub(r'tool[s]?', '', text)
+        text = re.sub(r'total[a-z]*', '', text)
+        text = re.sub(r'value[a-z]*', '', text)
+        text = re.sub(r'wide', '', text)
+        text = re.sub(r'work\b', '', text)
+        text = re.sub(r'world\b', '', text)
+        text = re.sub(r'working\b', '', text)
+        
+        text = re.sub(r'\b[0-9]*\b', '', text)
 
     # all
     text = re.sub(r',', ' ', text)
@@ -346,8 +419,20 @@ def remove_common(text, ngram_count, bypass):
     text = re.sub(r'\b[a-z]\b', '', text)
     text = re.sub(r'\b[a-z][a-z]\b', '', text)
 
-    # add standalone numbers- not sure the correct regex for this
     return text
+
+def filter_mesh_terms(data):
+    filter_terms = ['Asolescent', 'Adult', 'Aged', 'Animals', 'Child', 'Female',
+                    'Humans', 'Infant', 'Male', 'Middle Aged', 'Young Adult',
+                    'Adolescent', 'Child, Preschool', 'Computer Simulation',
+                    'Incidence', 'Prevalence', 'Aged, 80 and over']
+
+    
+    for term in filter_terms:
+        if term in data.keys():
+            del data[term]
+
+    return data
 
 def get_field_value(val):
     text = ""
@@ -592,10 +677,9 @@ def get_papers_per_word(field, final_word_list, min_year, max_year, do_stemming,
             list_of_words = post_process_text(field, text, processed_title, ngram_count, do_remove_common, do_stemming)
 
         # Iterate through words for particular year
-        keep_list = make_list(final_word_list.loc[final_word_list['date'] == year, 'topic'])
         word_list = make_list(list_of_words)
 
-        for word in keep_list:
+        for word in final_word_list:
             if word in word_list:
                 if year in paper_dict.keys():
                     if word in paper_dict[year].keys():
