@@ -10,7 +10,8 @@ from nltk import PorterStemmer
 from nltk.tokenize import wordpunct_tokenize
 from nltk.corpus import stopwords
 
-import pandas as pd;
+import pandas as pd
+import numpy as np
 
 from UnstemMethod import UnstemMethod
 from fields import Fields
@@ -23,399 +24,132 @@ def remove_common(text, ngram_count, bypass):
     if not bypass:
         return text
 
-    text = re.sub(r'(©|copyright|Copyright|FUNDING|Funding Statement|This article is protected).*$', '', text)
     text = text.lower()
+    # text = re.sub(r'published by.*on behalf of.*', '', text)
+    text = re.sub(r'published by.*$', '', text)
+    text = re.sub(r'(©|copyright|funding|this article is protected).*$', '', text)
     text = re.sub(r'\b[a-z]\b', '', text)
     text = re.sub(r'\b[a-z][a-z]\b', '', text)
+    filter_words_3gram = []
     if ngram_count <= 3:
-        text = re.sub(r'effective reproduction number', '', text)
-        text = re.sub(r'public health interventions?', '', text)
-        text = re.sub(r'formula: see text', '', text)
-        text = re.sub(r'basic reproduction numbers?', '', text)
-        text = re.sub(r'world health org[a-z]*', '', text)
-        text = re.sub(r'centers for disease control and prevention', '', text)
-        text = re.sub(r'social distanc[a-z]* (meas[a-z]*)?', '', text)
-        text = re.sub(r'receiv[a-z]* operat[a-z]* charact[a-z]* curv[a-z]*', '', text)
-        text = re.sub(r'national institutes of health', '', text)
-        text = re.sub(r'cente[a-z]* for dis[a-z]* cont[a-z]*', '', text)
+        for string in filter_words_3gram:
+            text = re.sub(r'' + string, '', text)
+        text = re.sub(r'\beffective reproduction number', '', text)
+        text = re.sub(r'\bpublic health interventions?', '', text)
+        text = re.sub(r'\bformula: see text', '', text)
+        text = re.sub(r'\bbasic reproduction numbers?', '', text)
+        text = re.sub(r'\bworld health org[a-z]*', '', text)
+        text = re.sub(r'\bcenters for disease control and prevention', '', text)
+        text = re.sub(r'\bsocial distanc[a-z]* (meas[a-z]*)?', '', text)
+        text = re.sub(r'\breceiv[a-z]* operat[a-z]* charact[a-z]* curv[a-z]*', '', text)
+        text = re.sub(r'\bnational institutes of health', '', text)
+        text = re.sub(r'\bcente[a-z]* for dis[a-z]* cont[a-z]*', '', text)
 
 
+    filter_words_2gram = []
     if ngram_count <= 2:
-        text = re.sub(r'(infectious disease)', '', text)
-        text = re.sub(r'mathematical model?', '', text)
-        text = re.sub(r'public health', '', text)
-        text = re.sub(r'confidence intervals?', '', text)
-        text = re.sub(r'transmission models?', '', text)
-        text = re.sub(r'transmission dynam[a-z]*', '', text)
-        text = re.sub(r'comp[a-z]* models?', '', text)
-        text = re.sub(r'results? (show[a-z]*|sugg[a-z]*)', '', text)
-        text = re.sub(r'attack rates?', '', text)
-        text = re.sub(r'control strat[a-z]*', '', text)
-        text = re.sub(r'incubation period[a-z]*', '', text)
-        text = re.sub(r'vaccine eff[a-z]*', '', text)
-        text = re.sub(r'qualityadjusted[a-z]*', '', text)
-        text = re.sub(r'models? predic[a-z]*', '', text)
-        text = re.sub(r'clin[a-z]* tria[a-z]*', '', text)
-        text = re.sub(r'reproduct[a-z]* numbers?', '', text)
-        text = re.sub(r'machine learn[a-z]*', '', text)
-        text = re.sub(r'disease[a-z]* trans[a-z]*', '', text)
-        text = re.sub(r'cohor[a-z]* stud[a-z]*', '', text)
-        text = re.sub(r'vacc[a-z]* strat[a-z]*', '', text)
-        text = re.sub(r'environmental health', '', text)
-        text = re.sub(r'golbal health', '', text)
-        text = re.sub(r'disease outbreak[a-z]*', '', text)
-        text = re.sub(r'united states', '', text)
-        text = re.sub(r'disease outbreak[a-z]*', '', text)
-        text = re.sub(r'decision mak[a-z]*', '', text)
-        text = re.sub(r'data interpretation', '', text)
-        text = re.sub(r'model evaulation[a-z]*', '', text)
-        text = re.sub(r'risk factor[a-z]*', '', text)
-        text = re.sub(r'health planner[a-z]*', '', text)
-        text = re.sub(r'paper compare[a-z]*', '', text)
-        text = re.sub(r'health care[a-z]*', '', text)
-        text = re.sub(r'contact tracing', '', text)
-        text = re.sub(r'mathema[a-z]* mode', '', text)
-        text = re.sub(r'public heal[a-z]*', '', text)
+        for string in filter_words_2gram:
+            text = re.sub(r'\b' + string + '[a-z]*\b', '', text)
+        text = re.sub(r'\b(infectious disease)', '', text)
+        text = re.sub(r'\bmathematical model?', '', text)
+        text = re.sub(r'\bpublic health', '', text)
+        text = re.sub(r'\bconfidence intervals?', '', text)
+        text = re.sub(r'\btransmission models?', '', text)
+        text = re.sub(r'\btransmission dynam[a-z]*', '', text)
+        text = re.sub(r'\bcomp[a-z]* models?', '', text)
+        text = re.sub(r'\bresults? (show[a-z]*|sugg[a-z]*)', '', text)
+        text = re.sub(r'\battack rates?', '', text)
+        text = re.sub(r'\bcontrol strat[a-z]*', '', text)
+        text = re.sub(r'\bincubation period[a-z]*', '', text)
+        text = re.sub(r'\bvaccine eff[a-z]*', '', text)
+        text = re.sub(r'\bqualityadjusted[a-z]*', '', text)
+        text = re.sub(r'\bmodels? predic[a-z]*', '', text)
+        text = re.sub(r'\bclin[a-z]* tria[a-z]*', '', text)
+        text = re.sub(r'\breproduct[a-z]* numbers?', '', text)
+        text = re.sub(r'\bmachine learn[a-z]*', '', text)
+        text = re.sub(r'\bdisease[a-z]* trans[a-z]*', '', text)
+        text = re.sub(r'\bcohor[a-z]* stud[a-z]*', '', text)
+        text = re.sub(r'\bvacc[a-z]* strat[a-z]*', '', text)
+        text = re.sub(r'\benvironmental health', '', text)
+        text = re.sub(r'\bgolbal health', '', text)
+        text = re.sub(r'\bdisease outbreak[a-z]*', '', text)
+        text = re.sub(r'\bunited states', '', text)
+        text = re.sub(r'\bdisease outbreak[a-z]*', '', text)
+        text = re.sub(r'\bdecision mak[a-z]*', '', text)
+        text = re.sub(r'\bdata interpretation', '', text)
+        text = re.sub(r'\bmodel evaulation[a-z]*', '', text)
+        text = re.sub(r'\brisk factor[a-z]*', '', text)
+        text = re.sub(r'\bhealth planner[a-z]*', '', text)
+        text = re.sub(r'\bpaper compare[a-z]*', '', text)
+        text = re.sub(r'\bhealth care[a-z]*', '', text)
+        text = re.sub(r'\bcontact tracing', '', text)
+        text = re.sub(r'\bmathema[a-z]* mode[a-z]*', '', text)
+        text = re.sub(r'\bpublic heal[a-z]*', '', text)
     
 
+    filter_words_1gram = ['polic', 'population', 'common', 'case', 'spread', 'infectious',
+                          'computat', 'susceptib', 'sensitivi', 'transmitt', 'fatality',
+                          'vector', 'strateg', 'observ', 'specific', 'illnes', 'forecast',
+                          'although', 'infection', 'monitoring', 'theoretical', 'model',
+                          'disease', 'communicable', 'virus', 'infection', 'biological',
+                          'human', 'pandemic', 'paper', 'probabilistic', 'statu', 'past',
+                          'stillhigh', 'methods', 'introduction', 'million', 'informed',
+                          'decades', 'tignificancethis', 'communicable', 'disease', 'incidence',
+                          'usa', 'ensemble', 'mortality', 'probabil', 'epidemi', 'nan',
+                          'evaluat', 'vaccin', 'season', 'decisi', 'prediction', 'expos',
+                          'outbreak', 'data', 'simulat', 'middleincome', 'qualityadj', 'review',
+                          'patient', 'information', 'surv', 'result', 'estimate', 'algorithim',
+                          'stochastic', 'processes', 'intervent', 'theoretical', 'compare',
+                          'studies', 'computer', 'analysis', 'healthcare', 'testing', 'vaccine',
+                          'test', 'stud', 'preval', 'mitigati', 'vaccine', 'crosssectional',
+                          'distribution', 'significancethis', 'evaluation', 'assessment',
+                          'background', 'mitigate', 'trasnsmiss', 'pattern', 'spatial',
+                          'mortality', 'agentbased', 'emergency', 'determin', 'united',
+                          'research', 'agent', 'experimen', 'evidence', 'health', 'factors',
+                          'mathemati', 'estima', 'additional', 'affect', 'age', 'approach',
+                          'assess', 'associated', 'association', 'available', 'based', 'cause',
+                          'change', 'clinical', 'collect', 'combine', 'conclusion', 'condition',
+                          'conduct', 'consider', 'control', 'current', 'demonstrat', 'design',
+                          'develop', 'differen', 'dynamic', 'effect', 'evalutat', 'general',
+                          'give', 'group', 'high', 'however', 'identif', 'implement', 'important',
+                          'improve', 'includ', 'increase', 'indicate', 'individual', 'inform',
+                          'initial', 'insight', 'interpret', 'investigat', 'involve', 'large',
+                          'level', 'likely', 'limit', 'many', 'measure', 'multiple', 'need', 'new',
+                          'number', 'occur', 'outcome', 'parameter', 'performance', 'potential',
+                          'predict', 'present', 'provide', 'range', 'rate', 'recent', 'reduce',
+                          'region', 'relative', 'remain', 'report', 'response', 'reveal', 'sample',
+                          'setting', 'set', 'severe', 'significant', 'suggest', 'time', 'understand',
+                          'use', 'using', 'variable', 'variation', 'year', 'absolute', 'acute',
+                          'adult', 'algorithm', 'amplification', 'animal', 'autocorrelation', 'based',
+                          'behavior', 'big', 'borne', 'burden', 'care', 'cluster', 'community',
+                          'conditonal', 'demographic', 'detection', 'drug', 'emerg', 'function',
+                          'individualbased', 'inference', 'maximum', 'mean', 'minimum', 'multivariate',
+                          'process', 'quantitative', 'randomize', 'rate', 'selection', 'series',
+                          'targeted', 'theory', 'trial', 'variant', 'examin', 'activit', 'aim',
+                          'consist', 'countr', 'day', 'depend', 'describ', 'follow', 'impact', 'low',
+                          'lower', 'key', 'major', 'method', 'network', 'novel', 'object', 'overall',
+                          'participant', 'perform', 'period', 'positive', 'ratio', 'relat', 'require',
+                          'respective', 'risk', 'role', 'several', 'similar', 'statistic', 'structure',
+                          'substancial', 'support', 'type', 'vary', 'account', 'allow', 'analys',
+                          'analyz', 'appli', 'apply', 'area', 'better', 'challeng', 'character',
+                          'child', 'compar', 'complex', 'confirm', 'contact', 'continu', 'contribut',
+                          'cost', 'death', 'decreas', 'detect', 'direct', 'discuss', 'early', 'effort',
+                          'exist', 'explor', 'framework', 'future', 'global', 'great', 'help', 'increas',
+                          'infect', 'interact', 'know', 'local', 'mechanism', 'month', 'national',
+                          'obtain', 'optimal', 'possib', 'primary', 'program', 'proportion', 'propos',
+                          'scale', 'single', 'size', 'small', 'source', 'state', 'substantial', 'target',
+                          'thus', 'tool', 'total', 'value', 'wide', 'work', 'world', 'working', 'publish',
+                          'explain', 'correlate', 'annual', 'address', 'average', 'event', 'generate',
+                          'importan', 'previous', 'represent']
     if ngram_count <=1:
-        text = re.sub(r'policy|policies', '', text)
-        text = re.sub(r'population[a-z]*', '', text)
-        text = re.sub(r'common[a-z]*', '', text)
-        text = re.sub(r'case[a-z]*', '', text)
-        text = re.sub(r'spread[a-z]*', '', text)
-        text = re.sub(r'infectious[a-z]*', '', text)
-        text = re.sub(r'computat[a-z]*', '', text)
-        text = re.sub(r'susceptib[a-z]*', '', text)
-        text = re.sub(r'sensitivi[a-z]*', '', text)
-        text = re.sub(r'transmitt[a-z]*', '', text)
-        text = re.sub(r'fatality[a-z]*', '', text)
-        text = re.sub(r'vector[a-z]*', '', text)
-        text = re.sub(r'strateg[a-z]*', '', text)
-        text = re.sub(r'observ[a-z]*', '', text)
-        text = re.sub(r'specific[a-z]*', '', text)
-        text = re.sub(r'illnes[a-z]*', '', text)
-        text = re.sub(r'forecast[a-z]*', '', text)
-        text = re.sub(r'although', '', text)
-        text = re.sub(r'infection[a-z]*', '', text)
-        text = re.sub(r'monitoring', '', text)
-        text = re.sub(r'theoretical', '', text)
-        text = re.sub(r'model[a-z]*', '', text)
-        text = re.sub(r'disease[a-z]*', '', text)
-        text = re.sub(r'communicable', '', text)
-        text = re.sub(r'virus', '', text)
-        text = re.sub(r'infection[a-z]*', '', text)
-        text = re.sub(r'biological', '', text)
-        text = re.sub(r'human[a-z]*', '', text)
-        text = re.sub(r'pandemic[a-z]*', '', text)
-        text = re.sub(r'paper[a-z]*', '', text)
-        text = re.sub(r'probabilistic', '', text)
-        text = re.sub(r'statu', '', text)
-        text = re.sub(r'past', '', text)
-        text = re.sub(r'stillhigh', '', text)
-        text = re.sub(r'methods', '', text)
-        text = re.sub(r'introduction', '', text)
-        text = re.sub(r'million', '', text)
-        text = re.sub(r'informed', '', text)
-        text = re.sub(r'decades', '', text)
-        text = re.sub(r'tignificancethis', '', text)
-        text = re.sub(r'communicable', '', text)
-        text = re.sub(r'disease[a-z]*', '', text)
-        text = re.sub(r'incidence', '', text)
-        text = re.sub(r'usa', '', text)
-        text = re.sub(r'ensemble', '', text)
-        text = re.sub(r'mortality', '', text)
-        text = re.sub(r'probabil[a-z]*', '', text)
-        text = re.sub(r'epidemi[a-z]*', '', text)
-        text = re.sub(r'nan', '', text)
-        text = re.sub(r'evaluat[a-z]*', '', text)
-        text = re.sub(r'vaccin[a-z]*', '', text)
-        text = re.sub(r'season[a-z]*', '', text)
-        text = re.sub(r'decisi[a-z]*', '', text)
-        text = re.sub(r'prediction[a-z]*', '', text)
-        text = re.sub(r'expos[a-z]*', '', text)
-        text = re.sub(r'outbreak[a-z]*', '', text)
-        text = re.sub(r'data[a-z]*', '', text)
-        text = re.sub(r'simulat[a-z]*', '', text)
-        text = re.sub(r'middleincome[a-z]*', '', text)
-        text = re.sub(r'qualityadj[a-z]*', '', text)
-        text = re.sub(r'review[a-z]*', '', text)
-        text = re.sub(r'patient[a-z]*', '', text)
-        text = re.sub(r'information[a-z]*', '', text)
-        text = re.sub(r'surv[a-z]*', '', text)
-        text = re.sub(r'result[a-z]*', '', text)
-        text = re.sub(r'estimate[a-z]*', '', text)
-        text = re.sub(r'algorithim[a-z]*', '', text)
-        text = re.sub(r'stochastic[a-z]*', '', text)
-        text = re.sub(r'processes[a-z]*', '', text)
-        text = re.sub(r'intervent[a-z]*', '', text)
-        text = re.sub(r'theoretical', '', text)
-        text = re.sub(r'compare[a-z]*', '', text)
-        text = re.sub(r'studies', '', text)
-        text = re.sub(r'computer', '', text)
-        text = re.sub(r'analysis', '', text)
-        text = re.sub(r'healthcare', '', text)
-        text = re.sub(r'testing', '', text)
-        text = re.sub(r'vaccine[a-z]*', '', text)
-        text = re.sub(r'test[a-z]*', '', text)
-        text = re.sub(r'stud[a-z]*', '', text)
-        text = re.sub(r'preval[a-z]*', '', text)
-        text = re.sub(r'mitigati[a-z]*', '', text)
-        text = re.sub(r'vaccine[a-z]*', '', text)
-        text = re.sub(r'crosssectional', '', text)
-        text = re.sub(r'distribution[a-z]*', '', text)
-        text = re.sub(r'significancethis', '', text)
-        text = re.sub(r'evaluation[a-z]*', '', text)
-        text = re.sub(r'assessment', '', text)
-        text = re.sub(r'background', '', text)
-        text = re.sub(r'mitigate', '', text)
-        text = re.sub(r'trasnsmiss[a-z]*', '', text)
-        text = re.sub(r'pattern[a-z]*', '', text)
-        text = re.sub(r'spatial', '', text)
-        text = re.sub(r'mortality', '', text)
-        text = re.sub(r'agentbased', '', text)
-        text = re.sub(r'emergency', '', text)
-        text = re.sub(r'determin[a-z]*', '', text)
-        text = re.sub(r'united', '', text)
-        text = re.sub(r'research[a-z]*', '', text)
-        text = re.sub(r'agent', '', text)
-        text = re.sub(r'experimen[a-z]*', '', text)
-        text = re.sub(r'evidence', '', text)
-        text = re.sub(r'health', '', text)
-        text = re.sub(r'factors', '', text)
-        text = re.sub(r'mathemati[a-z]*', '', text)
-        text = re.sub(r'estima[a-z]*', '', text)
-        text = re.sub(r'additional', '', text)
-        text = re.sub(r'affect', '', text)
-        text = re.sub(r'age', '', text)
-        text = re.sub(r'approach', '', text)
-        text = re.sub(r'assess', '', text)
-        text = re.sub(r'associated', '', text)
-        text = re.sub(r'association', '', text)
-        text = re.sub(r'available', '', text)
-        text = re.sub(r'based', '', text)
-        text = re.sub(r'cause[d]', '', text)
-        text = re.sub(r'change[a-z]*', '', text)
-        text = re.sub(r'clinical', '', text)
-        text = re.sub(r'collect[a-z]*', '', text)
-        text = re.sub(r'combine[a-z]*', '', text)
-        text = re.sub(r'conclusion[a-z]*', '', text)
-        text = re.sub(r'condition[a-z]*', '', text)
-        text = re.sub(r'conduct[a-z]*', '', text)
-        text = re.sub(r'consider[a-z]*', '', text)
-        text = re.sub(r'control[a-z]*', '', text)
-        text = re.sub(r'current', '', text)
-        text = re.sub(r'demonstrat[a-z]*', '', text)
-        text = re.sub(r'design[a-z]*', '', text)
-        text = re.sub(r'develop[a-z]*', '', text)
-        text = re.sub(r'differen[a-z]*', '', text)
-        text = re.sub(r'dynamic[a-z]*', '', text)
-        text = re.sub(r'effect[a-z]*', '', text)
-        text = re.sub(r'evalutat[a-z]*', '', text)
-        text = re.sub(r'general[a-z]*', '', text)
-        text = re.sub(r'give[a-z]*', '', text)
-        text = re.sub(r'group', '', text)
-        text = re.sub(r'high[a-z]*', '', text)
-        text = re.sub(r'however', '', text)
-        text = re.sub(r'identif[a-z]*', '', text)
-        text = re.sub(r'implement[a-z]*', '', text)
-        text = re.sub(r'important', '', text)
-        text = re.sub(r'improve[a-z]*', '', text)
-        text = re.sub(r'includ[a-z]*', '', text)
-        text = re.sub(r'increase[a-z]*', '', text)
-        text = re.sub(r'indicate', '', text)
-        text = re.sub(r'individual[a-z]*', '', text)
-        text = re.sub(r'inform[a-z]*', '', text)
-        text = re.sub(r'initial', '', text)
-        text = re.sub(r'insight[a-z]*', '', text)
-        text = re.sub(r'interpret[a-z]*', '', text)
-        text = re.sub(r'investigat[a-z]*', '', text)
-        text = re.sub(r'involve[a-z]*', '', text)
-        text = re.sub(r'large', '', text)
-        text = re.sub(r'level', '', text)
-        text = re.sub(r'likely', '', text)
-        text = re.sub(r'limit[a-z]*', '', text)
-        text = re.sub(r'many', '', text)
-        text = re.sub(r'measure[a-z]*', '', text)
-        text = re.sub(r'multiple', '', text)
-        text = re.sub(r'need', '', text)
-        text = re.sub(r'new', '', text)
-        text = re.sub(r'number', '', text)
-        text = re.sub(r'occur[a-z]*', '', text)
-        text = re.sub(r'outcome[a-z]*', '', text)
-        text = re.sub(r'parameter[a-z]*', '', text)
-        text = re.sub(r'performance', '', text)
-        text = re.sub(r'potential', '', text)
-        text = re.sub(r'predict', '', text)
-        text = re.sub(r'present', '', text)
-        text = re.sub(r'provide[a-z]*', '', text)
-        text = re.sub(r'range', '', text)
-        text = re.sub(r'rate[a-z]*', '', text)
-        text = re.sub(r'recent', '', text)
-        text = re.sub(r'reduce', '', text)
-        text = re.sub(r'region[a-z]*', '', text)
-        text = re.sub(r'relative', '', text)
-        text = re.sub(r'remain[a-z]*', '', text)
-        text = re.sub(r'report[a-z]*', '', text)
-        text = re.sub(r'response', '', text)
-        text = re.sub(r'reveal[a-z]*', '', text)
-        text = re.sub(r'sample[a-z]*', '', text)
-        text = re.sub(r'setting[a-z]*', '', text)
-        text = re.sub(r'set\b', '', text)
-        text = re.sub(r'severe', '', text)
-        text = re.sub(r'significant', '', text)
-        text = re.sub(r'suggest[a-z]*', '', text)
-        text = re.sub(r'time', '', text)
-        text = re.sub(r'understand[a-z]*', '', text)
-        text = re.sub(r'use', '', text)
-        text = re.sub(r'using', '', text)
-        text = re.sub(r'variable[a-z]*', '', text)
-        text = re.sub(r'variation', '', text)
-        text = re.sub(r'year[a-z]*', '', text)
-        text = re.sub(r'absolute', '', text)
-        text = re.sub(r'acute', '', text)
-        text = re.sub(r'adult[a-z]*', '', text)
-        text = re.sub(r'algorithm', '', text)
-        text = re.sub(r'amplification', '', text)
-        text = re.sub(r'animal', '', text)
-        text = re.sub(r'autocorrelation', '', text)
-        text = re.sub(r'based', '', text)
-        text = re.sub(r'behavior', '', text)
-        text = re.sub(r'big', '', text)
-        text = re.sub(r'borne', '', text)
-        text = re.sub(r'burden', '', text)
-        text = re.sub(r'care', '', text)
-        text = re.sub(r'cluster[a-z]*', '', text)
-        text = re.sub(r'community', '', text)
-        text = re.sub(r'conditonal', '', text)
-        text = re.sub(r'demographic', '', text)
-        text = re.sub(r'detection', '', text)
-        text = re.sub(r'drug', '', text)
-        text = re.sub(r'emerg[a-z]*', '', text)
-        text = re.sub(r'function', '', text)
-        text = re.sub(r'individualbased', '', text)
-        text = re.sub(r'inference', '', text)
-        text = re.sub(r'maximum', '', text)
-        text = re.sub(r'mean', '', text)
-        text = re.sub(r'minimum', '', text)
-        text = re.sub(r'multivariate', '', text)
-        text = re.sub(r'process[a-z]*', '', text)
-        text = re.sub(r'quantitative', '', text)
-        text = re.sub(r'randomize[a-z]*', '', text)
-        text = re.sub(r'rate', '', text)
-        text = re.sub(r'selection', '', text)
-        text = re.sub(r'series', '', text)
-        text = re.sub(r'targeted', '', text)
-        text = re.sub(r'theory', '', text)
-        text = re.sub(r'trial', '', text)
-        text = re.sub(r'variant', '', text)
-        text = re.sub(r'examin[a-z]*', '', text)
-        text = re.sub(r'activit[a-z]*', '', text)
-        text = re.sub(r'\baim[a-z]*', '', text)
-        text = re.sub(r'consist[a-z]*', '', text)
-        text = re.sub(r'countr[a-z]*', '', text)
-        text = re.sub(r'\bday[a-z]*', '', text)
-        text = re.sub(r'depend[a-z]*', '', text)
-        text = re.sub(r'describ[a-z]*', '', text)
-        text = re.sub(r'follow[a-z]*', '', text)
-        text = re.sub(r'impact[a-z]*', '', text)
-        text = re.sub(r'\bing\b', '', text)
-        text = re.sub(r'\blow\b', '', text)
-        text = re.sub(r'\blower\b', '', text)
-        text = re.sub(r'\bkey\b', '', text)
-        text = re.sub(r'major', '', text)
-        text = re.sub(r'method[s]?', '', text)
-        text = re.sub(r'network', '', text)
-        text = re.sub(r'novel', '', text)
-        text = re.sub(r'object[a-z]*', '', text)
-        text = re.sub(r'overall', '', text)
-        text = re.sub(r'participant[s]?', '', text)
-        text = re.sub(r'perform[a-z]*', '', text)
-        text = re.sub(r'period', '', text)
-        text = re.sub(r'positive', '', text)
-        text = re.sub(r'ratio', '', text)
-        text = re.sub(r'relat[a-z]*', '', text)
-        text = re.sub(r'require[a-z]*', '', text)
-        text = re.sub(r'respective[a-z]*', '', text)
-        text = re.sub(r'risk[s]?', '', text)
-        text = re.sub(r'role[s]?', '', text)
-        text = re.sub(r'several', '', text)
-        text = re.sub(r'similar', '', text)
-        text = re.sub(r'statistic[a-z]*', '', text)
-        text = re.sub(r'structure', '', text)
-        text = re.sub(r'substancial', '', text)
-        text = re.sub(r'support', '', text)
-        text = re.sub(r'type[s]?', '', text)
-        text = re.sub(r'vary[a-z]*', '', text)
-        text = re.sub(r'account[s]?', '', text)
-        text = re.sub(r'allow[a-z]*', '', text)
-        text = re.sub(r'analys[a-z]*', '', text)
-        text = re.sub(r'analyz[a-z]*', '', text)
-        text = re.sub(r'appli[a-z]*', '', text)
-        text = re.sub(r'apply[a-z]*', '', text)
-        text = re.sub(r'area[s]?', '', text)
-        text = re.sub(r'better', '', text)
-        text = re.sub(r'challeng[a-z]*', '', text)
-        text = re.sub(r'character[a-z]*', '', text)
-        text = re.sub(r'child[a-z]*', '', text)
-        text = re.sub(r'compar[a-z]*', '', text)
-        text = re.sub(r'complex', '', text)
-        text = re.sub(r'confirm[a-z]*', '', text)
-        text = re.sub(r'contact[a-z]*', '', text)
-        text = re.sub(r'continu[a-z]*', '', text)
-        text = re.sub(r'contribut[a-z]*', '', text)
-        text = re.sub(r'cost[a-z]*', '', text)
-        text = re.sub(r'death[s]?', '', text)
-        text = re.sub(r'decreas[a-z]*', '', text)
-        text = re.sub(r'detect[a-z]*', '', text)
-        text = re.sub(r'direct[a-z]*', '', text)
-        text = re.sub(r'discuss[a-z]*', '', text)
-        text = re.sub(r'early', '', text)
-        text = re.sub(r'effort[s]?', '', text)
-        text = re.sub(r'exist[a-z]*', '', text)
-        text = re.sub(r'explor[a-z]*', '', text)
-        text = re.sub(r'framework[s]?', '', text)
-        text = re.sub(r'future[s]?', '', text)
-        text = re.sub(r'global', '', text)
-        text = re.sub(r'great[a-z]*', '', text)
-        text = re.sub(r'help[a-z]*', '', text)
-        text = re.sub(r'increas[a-z]*', '', text)
-        text = re.sub(r'infect[a-z]*', '', text)
-        text = re.sub(r'interact[a-z]*', '', text)
-        text = re.sub(r'know[a-z]*', '', text)
-        text = re.sub(r'local[a-z]*', '', text)
-        text = re.sub(r'mechanism[s]?', '', text)
-        text = re.sub(r'month[a-z]*', '', text)
-        text = re.sub(r'national', '', text)
-        text = re.sub(r'obtain[a-z]*', '', text)
-        text = re.sub(r'optimal', '', text)
-        text = re.sub(r'possib[a-z]*', '', text)
-        text = re.sub(r'primary', '', text)
-        text = re.sub(r'program[a-z]*', '', text)
-        text = re.sub(r'proportion[a-z]*', '', text)
-        text = re.sub(r'propos[a-z]*', '', text)
-        text = re.sub(r'scale[s]?', '', text)
-        text = re.sub(r'single\b', '', text)
-        text = re.sub(r'size[s]?', '', text)
-        text = re.sub(r'small[a-z]*', '', text)
-        text = re.sub(r'source[a-z]*', '', text)
-        text = re.sub(r'state[s]?', '', text)
-        text = re.sub(r'substantial', '', text)
-        text = re.sub(r'target[a-z]*', '', text)
-        text = re.sub(r'thus', '', text)
-        text = re.sub(r'tool[s]?', '', text)
-        text = re.sub(r'total[a-z]*', '', text)
-        text = re.sub(r'value[a-z]*', '', text)
-        text = re.sub(r'wide', '', text)
-        text = re.sub(r'work\b', '', text)
-        text = re.sub(r'world\b', '', text)
-        text = re.sub(r'working\b', '', text)
+        for string in filter_words_1gram:
+           text = re.sub(r'\b' + string + '[a-z]*', '', text)
         
         text = re.sub(r'\b[0-9]*\b', '', text)
 
     # all
-    text = re.sub(r',', ' ', text)
-    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'\b,', ' ', text)
+    text = re.sub(r'\b\s+', ' ', text)
     text = re.sub(r'\b[a-z]\b', '', text)
     text = re.sub(r'\b[a-z][a-z]\b', '', text)
 
@@ -475,48 +209,18 @@ def write_cluster_to_json(title, bins, features):
     with open("data/cluster-info-" + title + ".json", "w") as outfile2:
         json.dump(features, outfile2)
 
-
-def build_corpus(field_set, do_stemming, do_remove_common):
-    people = pd.read_json('data_sources/people.json')
-    papers = pd.read_json('data_sources/papers.json')
-    people = people[people['publications'].map(lambda d: len(d) > 0)]
-    people_list = []
-    text_list = []
-
-    for personIdx in people.index:
-        all_person_text = ""
-        title = ""
-        for paperIdx in people['publications'][personIdx]:
-            row = papers.loc[papers['uri'] == paperIdx]
-
-            if not row.empty and len(paperIdx) > 32:
-                title = remove_common(row['title'].values[0], ngram_count, do_remove_common)
-                for field in field_set:
-                    abstract = row[field]
-                    if isinstance(abstract, pd.Series):
-                        if not isinstance(row[field].values[0], list) and not isinstance(row[field].values[0],
-                                                                                         str) and math.isnan(
-                            row[field].values[0]):
-                            continue;
-                        abstract = " ".join(row[field].values[0])
-                    if isinstance(abstract, str):
-                        abstract = remove_common(abstract, ngram_count, do_remove_common)
-
-                    all_person_text += " " + abstract
-
-        all_person_text = title + all_person_text
-        all_person_text = remove_common(all_person_text, ngram_count, do_remove_common)
-        person = people['name'][personIdx] + "#" + people['uri'][personIdx]
-        people_list.append(person)
-        list_of_words = remove_stop_words_and_do_stemming(all_person_text, do_stemming, do_remove_common)
-        text_list.append(''.join(list_of_words))
-
-    df = pd.DataFrame({
-        'people': people_list,
-        'text': text_list
-    })
-    return df
-
+def word_is_present(word, list_of_words, ngram_count):
+    if ngram_count == 1:
+        word_list = make_list(list_of_words)
+        if word in word_list:
+            return True
+        else:
+            return False
+    else:
+        if word in list_of_words:
+            return True
+        else:
+            return False
 
 def remove_stop_words_and_do_stemming(unfiltered_text, ngram_count, do_stemming, do_remove_common):
     unfiltered_text = remove_common(unfiltered_text.translate(str.maketrans("", "", string.punctuation)),ngram_count,
@@ -630,20 +334,25 @@ def build_corpus_words_by_year(field, ngram_count, min_year, max_year, do_stemmi
             dfs[key] = pd.DataFrame({'text': value})
         return dfs
 
-def get_papers_per_word(field, final_word_list, min_year, max_year, do_stemming, do_remove_common):
+def get_papers_per_word(field, ngram_count, final_word_list, min_year, max_year, do_stemming, do_remove_common):
     papers = pd.read_json('data_sources/papers.json')
     paper_dict = {}
 
-    search_year = 2012
-    search_word = 'ed'
+    search_year = 2021
+    search_word = 'oxford'
     filename = str(search_year) + '_w_' + search_word + '.txt'
     ## delete the file if it exists
     if os.path.exists(filename):
         os.remove(filename)
 
+    words_per_year = {}
+    for year in range(min_year,max_year+1):
+        date = str(year) + '/1/1'
+        words_per_year[date] = make_list(final_word_list.loc[np.logical_and(final_word_list['date'] == date, final_word_list['count'] != 0), 'topic'])
+
     for paper_idx, row in papers.iterrows():
         all_content_text_for_paper = ""
-        ngram_count = 1
+        # ngram_count = 1
         title =  row['title']
         processed_title = remove_common(title, ngram_count, do_remove_common)
         uri = row['uri']
@@ -677,10 +386,9 @@ def get_papers_per_word(field, final_word_list, min_year, max_year, do_stemming,
             list_of_words = post_process_text(field, text, processed_title, ngram_count, do_remove_common, do_stemming)
 
         # Iterate through words for particular year
-        word_list = make_list(list_of_words)
 
-        for word in final_word_list:
-            if word in word_list:
+        for word in words_per_year[str(year)+'/1/1']:
+            if word_is_present(word, list_of_words, ngram_count):
                 if year in paper_dict.keys():
                     if word in paper_dict[year].keys():
                         paper_dict[year][word].append({'title': title, 'uri': uri})
@@ -692,8 +400,8 @@ def get_papers_per_word(field, final_word_list, min_year, max_year, do_stemming,
 
 
 
-        if search_year == year and search_word in word_list:
-            with open(filename, 'a') as f:
-                f.write(str(paper_idx) + ": " + list_of_words + '\n')
+        # if search_year == year and search_word in list_of_words:
+            # with open(filename, 'a') as f:
+            #     f.write(str(paper_idx) + ": " + list_of_words + '\n')
 
     return paper_dict

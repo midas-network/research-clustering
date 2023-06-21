@@ -12,7 +12,7 @@ n_features = 100000
 n_top_words = 20
 
 
-def fill_topic_df(full_count, corpus_dfs):
+def fill_topic_df(full_count):
     year_range = [*range(min(full_count['date']),max(full_count['date'])+1)]
     topic_list = pd.unique(full_count['topic'])
 
@@ -24,10 +24,6 @@ def fill_topic_df(full_count, corpus_dfs):
     all_topics_df.update(full_count.set_index(['date','topic']))
     all_topics_df.reset_index(drop=False,inplace=True)
     all_topics_df['count'] = all_topics_df['count'].astype(int)
-    all_topics_df['date'] = all_topics_df['date'].astype(str) + "/1/1"
-
-    all_topics_df = all_topics_df.sort_values(by=['topic', 'date'], ascending=[True, True])
-    print(all_topics_df)
 
     return all_topics_df
 
@@ -37,15 +33,19 @@ def process_field(field, ngram_count, min_year, max_year):
     corpus_dfs = build_corpus_words_by_year(field, ngram_count, min_year, max_year, do_stemming=True, do_remove_common=True)
     full_topic_list = set()
     select_topic_list = set()
+    # year_counts = []
+
+    if field == Fields.MESH_TERM:
+        for year, df in corpus_dfs.items():
+            if int(year) >= min_year or int(year) <= max_year:
+                full_topic_list.update(df.keys())
+
+        everything_everywhere = pd.DataFrame(columns=['date', 'topic'], data=list(itertools.product(corpus_dfs.keys(), full_topic_list)))
+        everything_everywhere.insert(2, 'count', 0)
+    else:
+        everything_everywhere = pd.DataFrame(columns=['date', 'topic', 'count'])
+
     year_counts = []
-
-    for year, df in corpus_dfs.items():
-        if int(year) >= min_year or int(year) <= max_year:
-            full_topic_list.update(df.keys())
-
-    everything_everywhere = pd.DataFrame(columns=['date', 'topic'], data=list(itertools.product(corpus_dfs.keys(), full_topic_list)))
-    everything_everywhere.insert(2, 'count', 0)
-
     for year, df in corpus_dfs.items():
         if int(year) < min_year or int(year) > max_year:
                 continue
@@ -55,12 +55,12 @@ def process_field(field, ngram_count, min_year, max_year):
                 everything_everywhere.loc[np.logical_and(everything_everywhere['date']==year, everything_everywhere['topic']==term), 'count'] = filtered_data[term]
 
             sorted_word_list = sorted(filtered_data.items(), key=lambda x:x[1], reverse=True)
-            data = dict(sorted_word_list[0:19])
+            data = dict(sorted_word_list[0:20])
 
             select_topic_list.update(list(data.keys()))
-            # counts = pd.DataFrame.from_dict(data.items())
-            # counts.insert(0,'date',year)
-            # year_counts.append(counts)
+            counts = pd.DataFrame.from_dict(data.items())
+            counts.insert(0,'date',year)
+            year_counts.append(counts)
             
         else:
             data = df["text"].tolist()
@@ -75,11 +75,28 @@ def process_field(field, ngram_count, min_year, max_year):
                 list(zip(count_vectorizer.get_feature_names_out(),
                         count_data.sum(axis=0).tolist()[0])))\
                 .sort_values(1,ascending=False)
+            counts = counts.rename(columns={0:'topic', 1: 'count'})
             counts.insert(0, 'date', year)
-            year_counts.append(counts[0:19])
+            select_topic_list.update(list(counts[0:20]['topic']))
 
-    if field == Fields.MESH_TERM:
-        all_topics_df = everything_everywhere[everything_everywhere['topic'].isin(list(select_topic_list))]
+            everything_everywhere = pd.concat([everything_everywhere, counts], ignore_index=True)
+            year_counts.append(counts[0:20])
+
+    # if field == Fields.MESH_TERM:
+    all_topics_df = everything_everywhere[everything_everywhere['topic'].isin(list(select_topic_list))]
+
+    if field != Fields.MESH_TERM:
+        all_topics_df = fill_topic_df(all_topics_df)
+
+    for word_set in year_counts:
+        for term in select_topic_list:
+            if field == Fields.MESH_TERM:
+                if term not in word_set[0].values.tolist():
+                    all_topics_df.loc[np.logical_and(all_topics_df['topic']==term,all_topics_df['date']==word_set['date'][0]), 'count'] = 0
+            else:
+                if term not in word_set['topic'].values.tolist():
+                    all_topics_df.loc[np.logical_and(all_topics_df['topic']==term,all_topics_df['date']==word_set['date'].iloc[0]), 'count'] = 0
+
 
     all_topics_df['date'] = all_topics_df['date'].astype(str) + "/1/1"
     all_topics_df = all_topics_df.sort_values(by=['topic', 'date'], ascending=[True, True])
@@ -94,7 +111,8 @@ def process_field(field, ngram_count, min_year, max_year):
     # all_topics_df = fill_topic_df(full_count, corpus_dfs)
     # print(all_topics_df)
 
-    paper_dict = get_papers_per_word(field, select_topic_list, min_year, max_year, do_stemming=True, do_remove_common=True)
+    final_word_list = all_topics_df.copy()
+    paper_dict = get_papers_per_word(field, ngram_count, final_word_list, min_year, max_year, do_stemming=True, do_remove_common=True)
 
     # topic_list = full_count['topic'].tolist()
     if field != Fields.MESH_TERM:
@@ -130,7 +148,7 @@ def process_field(field, ngram_count, min_year, max_year):
 
 def main():
     do_all = False
-    min_year = 2010
+    min_year = 2013
     max_year = 2022
     if do_all:
         fields = [Fields.ABSTRACT, Fields.PUBMED_KEYWORD]
@@ -138,10 +156,10 @@ def main():
            process_field(field, 1, min_year, max_year)
            process_field(field, 2, min_year, max_year)
            process_field(field, 3, min_year, max_year)
-        # process_field(Fields.MESH_TERM, 1, min_year, max_year)
+        process_field(Fields.MESH_TERM, 1, min_year, max_year)
     else:
-        field = Fields.MESH_TERM
-        ngram_count = 1
+        field = Fields.ABSTRACT
+        ngram_count = 2
         process_field(field, ngram_count, min_year, max_year)
 
 
