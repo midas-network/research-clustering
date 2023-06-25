@@ -356,6 +356,9 @@ def get_papers_per_word(field, ngram_count, final_word_list, min_year, max_year,
         title =  row['title']
         processed_title = remove_common(title, ngram_count, do_remove_common)
         uri = row['uri']
+        abstract = row['paperAbstract']
+        if type(abstract) != string:
+            abstract = ''
         # if index > 100:
         #     dfs = {}
         #     for key, value in text_dict.items():
@@ -391,12 +394,12 @@ def get_papers_per_word(field, ngram_count, final_word_list, min_year, max_year,
             if word_is_present(word, list_of_words, ngram_count):
                 if year in paper_dict.keys():
                     if word in paper_dict[year].keys():
-                        paper_dict[year][word].append({'title': title, 'uri': uri})
+                        paper_dict[year][word].append({'title': title, 'uri': uri, 'abstract': abstract})
                     else:
-                        paper_dict[year][word] = [{'title': title, 'uri': uri}]
+                        paper_dict[year][word] = [{'title': title, 'uri': uri, 'abstract': abstract}]
                 else:
                     paper_dict[year] = {}
-                    paper_dict[year][word] = [{'title': title, 'uri': uri}]
+                    paper_dict[year][word] = [{'title': title, 'uri': uri, 'abstract': abstract}]
 
 
 
