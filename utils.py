@@ -357,7 +357,7 @@ def get_papers_per_word(field, ngram_count, final_word_list, min_year, max_year,
         processed_title = remove_common(title, ngram_count, do_remove_common)
         uri = row['uri']
         abstract = row['paperAbstract']
-        if type(abstract) != string:
+        if type(abstract) != str:
             abstract = ''
         # if index > 100:
         #     dfs = {}
