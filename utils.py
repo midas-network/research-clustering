@@ -13,10 +13,75 @@ from nltk.corpus import stopwords
 import pandas as pd;
 
 from UnstemMethod import UnstemMethod
+from fields import Fields
 
 STEMDICT = {}
 stop_words = set(stopwords.words('english'))
 
+diseases = [
+    'COVID-19',
+    'COVID19',
+    'Covid-19',
+    'Coronavirus',
+    'Influenza',
+    'Flu',
+    'Malaria',
+    'Tuberculosis',
+    'TB',
+    'HIV/AIDS',
+    'Hepatitis B',
+    'Hep B',
+    'Pneumonia',
+    'Cholera',
+    'Dengue Fever',
+    'Dengue',
+    'Measles',
+    'Rubella',
+    'German Measles',
+    'Whooping Cough',
+    'Pertussis',
+    'Typhoid Fever',
+    'Gonorrhea',
+    'Gonorrhoea',
+    'Syphilis',
+    'Lyme Disease',
+    'Zika Virus',
+    'Chikungunya',
+    'Ebola',
+    'Meningitis',
+    'Hepatitis A',
+    'Hep A',
+    'Hepatitis C',
+    'Hep C',
+    'Shigellosis',
+    'Bacillary Dysentery',
+    'Gastroenteritis',
+    'Tetanus',
+    'Lockjaw',
+    'Rabies',
+    'Chickenpox',
+    'Varicella',
+    'Norovirus',
+    'Staph Infections',
+    'Staphylococcal Infections',
+    'MRSA (Methicillin-resistant Staphylococcus aureus)',
+    'Candidiasis',
+    'Yeast Infection',
+    'Infectious Mononucleosis',
+    'Mono',
+    'Glandular Fever',
+    'Hand, Foot, and Mouth Disease',
+    'HFMD',
+    'Legionnaires’ Disease',
+    'Legionellosis',
+    'Leprosy',
+    'Hansen Disease',
+    'Listeriosis',
+    'Toxoplasmosis',
+    'Toxo',
+    'Trichomoniasis',
+    'Trich',
+]
 
 def remove_common(text, bypass):
     if not bypass:
@@ -176,7 +241,7 @@ def remove_common(text, bypass):
     text = re.sub(r'public heal[a-z]*', '', text)
     text = re.sub(r'mathemati[a-z]*', '', text)
     text = re.sub(r'estima[a-z]*', '', text)
-    text = re.sub(r',', '', text)
+    text = re.sub(r',', ' ', text)
     text = re.sub(r'\s+', ' ', text)
     return text
 
@@ -187,6 +252,12 @@ def write_cluster_to_json(title, bins, features):
 
     with open("data/cluster-info-" + title + ".json", "w") as outfile2:
         json.dump(features, outfile2)
+
+
+def process_text(text, title, field, do_remove_common):
+    if field in [Fields.ABSTRACT]:
+        text = remove_common(text + title, do_remove_common)
+    return text
 
 
 def build_corpus(field_set, do_stemming, do_remove_common):
@@ -205,20 +276,21 @@ def build_corpus(field_set, do_stemming, do_remove_common):
             if not row.empty and len(paperIdx) > 32:
                 title = remove_common(row['title'].values[0], do_remove_common)
                 for field in field_set:
-                    abstract = row[field]
-                    if isinstance(abstract, pd.Series):
+                    field_value = row[field]
+                    if isinstance(field_value, pd.Series):
                         if not isinstance(row[field].values[0], list) and not isinstance(row[field].values[0],
                                                                                          str) and math.isnan(
                             row[field].values[0]):
                             continue;
-                        abstract = " ".join(row[field].values[0])
-                    if isinstance(abstract, str):
-                        abstract = remove_common(abstract, do_remove_common)
+                        field_value = row[field].values[0]
+                    if isinstance(field_value, str):
+                        field_value = remove_common(field_value, do_remove_common)
+                    if isinstance(field_value, list):
+                        field_value = " ".join(field_value)
 
-                    all_person_text += " " + abstract
+                    all_person_text += " " + field_value
 
-        all_person_text = title + all_person_text
-        all_person_text = remove_common(all_person_text, do_remove_common)
+        all_person_text = process_text(all_person_text, title, Fields.ABSTRACT, do_remove_common)
         person = people['name'][personIdx] + "#" + people['uri'][personIdx]
         people_list.append(person)
         list_of_words = remove_stop_words_and_do_stemming(all_person_text, do_stemming, do_remove_common)
@@ -236,34 +308,38 @@ def remove_stop_words_and_do_stemming(unfiltered_text, do_stemming, do_remove_co
                                     do_remove_common)
     word_tokens = word_tokenize(unfiltered_text.lower())
 
-    filtered_sentence = []
-
-    for w in word_tokens:
-        if w not in stop_words:
-            filtered_sentence.append(w)
-
-    stem_words = []
-    ps = PorterStemmer()
-    for w in filtered_sentence:
-        # don't add single letters
-        if len(w) != 1:
-            root_word = w
-            if do_stemming:
-                stem_word = ps.stem(root_word)
-                if stem_word in STEMDICT:
-                    indiv_stem_word_dict = STEMDICT[stem_word]
-                else:
-                    indiv_stem_word_dict = {}
-                if root_word in indiv_stem_word_dict:
-                    indiv_stem_word_dict[root_word] += 1;
-                else:
-                    indiv_stem_word_dict[root_word] = 1;
-
-                STEMDICT[stem_word] = indiv_stem_word_dict
-            stem_words.append(stem_word)
-
-    return ' '.join(stem_words)
-
+    if not do_stemming:
+        return word_tokens
+    if do_stemming:
+        filtered_sentence = []
+    
+        for w in word_tokens:
+            if w not in stop_words:
+                filtered_sentence.append(w)
+    
+        stem_words = []
+        ps = PorterStemmer()
+        for w in filtered_sentence:
+            # don't add single letters
+            if len(w) != 1:
+                root_word = w
+                if do_stemming:
+                    stem_word = ps.stem(root_word)
+                    if stem_word in STEMDICT:
+                        indiv_stem_word_dict = STEMDICT[stem_word]
+                    else:
+                        indiv_stem_word_dict = {}
+                    if root_word in indiv_stem_word_dict:
+                        indiv_stem_word_dict[root_word] += 1;
+                    else:
+                        indiv_stem_word_dict[root_word] = 1;
+    
+                    STEMDICT[stem_word] = indiv_stem_word_dict
+                stem_words.append(stem_word)
+    
+        return ' '.join(stem_words)
+    
+    
 
 def unstemword(stemmed_word, unstem_method=UnstemMethod.SELECT_MOST_FREQUENT):
     if stemmed_word in STEMDICT:
@@ -287,13 +363,11 @@ def unstemword(stemmed_word, unstem_method=UnstemMethod.SELECT_MOST_FREQUENT):
 def build_corpus_words_only(field_set, do_stemming, do_remove_common):
     papers = pd.read_json('data_sources/papers.json')
     text_list = []
-    all_person_text = ""
+
     for index, row in papers.iterrows():
-        if index > 100:
-            df = pd.DataFrame({
-                'text': text_list
-            })
-            return df
+        all_person_text = ""
+        # if index > 100:
+        #     break
         title = remove_common(row['title'], do_remove_common)
         for field in field_set:
             abstract = row[field]
@@ -308,10 +382,11 @@ def build_corpus_words_only(field_set, do_stemming, do_remove_common):
                 all_person_text += " " + abstract + " "
 
         if 'paperAbstract' in field_set:
-            all_person_text = title + all_person_text
-        all_person_text = remove_common(all_person_text, do_remove_common)
+            all_person_text = title + " " + all_person_text
+        #all_person_text = remove_common(all_person_text, do_remove_common)
         list_of_words = remove_stop_words_and_do_stemming(all_person_text, do_stemming, do_remove_common)
-        text_list.append(''.join(list_of_words))
+        text_list.append(re.sub(r"(©|elsevier|copyright).*", "", ' '.join(list_of_words)))
+
 
     df = pd.DataFrame({
         'text': text_list
@@ -344,22 +419,21 @@ def build_corpus_words_only_by_year(field_set, do_stemming, do_remove_common):
         if year != 2013:
             continue
         for field in field_set:
-            abstract = row[field]
-            if isinstance(abstract, pd.Series):
+            field_value = row[field]
+            if isinstance(field_value, pd.Series):
                 if not isinstance(row[field].values[0], list) and not isinstance(row[field].values[0],
                                                                                  str) and math.isnan(
                     row[field].values[0]): continue;
-                abstract = " ".join(row[field].values[0])
-            if isinstance(abstract, list):
-                abstract = " ".join([item for item in row[field]])
-            if isinstance(abstract, str):
-                abstract = remove_common(abstract, do_remove_common)
-                all_person_text += " " + abstract
+                field_value = " ".join(row[field].values[0])
+            if isinstance(field_value, list):
+                field_value = " ".join([item for item in row[field]])
+            if isinstance(field_value, str):
+                field_value = field_value
 
-        all_person_text = title + all_person_text
-        all_person_text = remove_common(all_person_text, do_remove_common)
+            all_person_text += " " + field_value
 
-     
+        all_person_text = process_text(all_person_text, title, field, do_remove_common)
+
         list_of_words = remove_stop_words_and_do_stemming(all_person_text, do_stemming, do_remove_common)
 
         if year in text_dict.keys():
@@ -423,19 +497,19 @@ def get_papers_per_word(field_set, final_word_list, do_stemming, do_remove_commo
 
         # for word in list_of_words.split(' '):
         #     if not final_word_list.loc[(final_word_list['year']==year) & (final_word_list['topic']==word)].empty:
+        json_str = {'title': paper['title'],
+                    'uri': paper['uri']}
         for word in final_word_list.loc[final_word_list['year'] == year, 'topic'].tolist():
             if word in list_of_words.split(" "):
                 if year in paper_dict.keys():
                     if word in paper_dict[year].keys():
                         # if paper_idx not in paper_dict[year][word]:
-                        paper_dict[year][word].append({'title': paper['title'], 'uri': paper['uri']})
+                        paper_dict[year][word].append(json_str)
                     else:
-                        paper_dict[year][word] = [{'title': paper['title'], 'uri': paper['uri']}]
+                        paper_dict[year][word] = [json_str]
                 else:
                     paper_dict[year] = {}
-                    paper_dict[year][word] = [{'title': paper['title'], 'uri': paper['uri']}]
-
-
+                    paper_dict[year][word] = [json_str]
 
         if search_year == year and search_word in list_of_words.split(" "):
             with open(filename, 'a') as f:

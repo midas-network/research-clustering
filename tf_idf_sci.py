@@ -83,7 +83,7 @@ def print_clusters_report(f, algo_name, num_of_clusters, ngram_size, main_df, cl
         # f.write('\n\t\tResearchers (' + str(len(people_cluster_dict[cluster_index])) + '): ' + ','
         #      .join(people_cluster_dict[cluster_index]))
         f.write(
-            '\n\tTop 20 n-grams: ' + get_top_keywords(clusters_df, cluster_index, tfidf_obj.get_feature_names(), 20))
+            '\n\tTop 20 n-grams: ' + get_top_keywords(clusters_df, cluster_index, tfidf_obj.get_feature_names_out(), 20))
 
 
 

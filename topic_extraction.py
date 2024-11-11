@@ -28,6 +28,7 @@ def get_people_for_topic(people, series):
 
     return people_per_topic
 
+
 def process_field(fields):
     def plot_top_words(model, nmf_features, feature_names, n_top_words, title, people):
 
@@ -36,7 +37,7 @@ def process_field(fields):
         document_count = pd.DataFrame(nmf_features).idxmax(axis=1).value_counts()
         feature_dict = {}
         for topic_idx, topic in enumerate(model.components_):
-            top_features_ind = topic.argsort()[: -n_top_words - 1 : -1]
+            top_features_ind = topic.argsort()[: -n_top_words - 1: -1]
             top_features = [feature_names[i] for i in top_features_ind]
             top_unstemmed_features = []
             weights = topic[top_features_ind]
@@ -44,7 +45,9 @@ def process_field(fields):
             for features in top_features:
                 feature = ""
                 for feature_word in features.split(" "):
-                    feature += STEMDICT[feature_word] + " "
+                    # feature += STEMDICT[feature_word] + " "
+                    while unstemmed_feature := next(iter(STEMDICT[feature_word])):
+                        feature += unstemmed_feature
                 top_unstemmed_features.append(feature.rstrip())
 
             feature_dict[topic_idx] = ",".join(top_unstemmed_features)
@@ -70,7 +73,6 @@ def process_field(fields):
         plt.savefig(output_dir + '{}.png'.format(title))
         plt.close(fig)
 
-
     # Load the 20 newsgroups dataset and vectorize it. We use a few heuristics
     # to filter out useless terms early on: the posts are stripped of headers,
     # footers and quoted replies, and common English words, words occurring in
@@ -78,7 +80,6 @@ def process_field(fields):
 
     print("Loading dataset...")
     t0 = time()
-
 
     abstracts_df = build_corpus(fields, do_stemming=True, do_remove_common=True)
     data = abstracts_df["text"].tolist()
@@ -110,7 +111,7 @@ def process_field(fields):
 
     # Use tf (raw term count) features for LDA.
     # print("Extracting tf features for LDA...")
-    #THIS IS THE DICT FOLLOWED BY THE COUNTS!
+    # THIS IS THE DICT FOLLOWED BY THE COUNTS!
     tf_vectorizer = CountVectorizer(
         max_df=0.95, min_df=2, max_features=n_features, stop_words="english", ngram_range=(1, 4)
     )
@@ -167,7 +168,6 @@ def process_field(fields):
     )
 
     nmf = nmf_c.fit(tfidf)
-
 
     print("done in %0.3fs." % (time() - t0))
     nmf_features = nmf.transform(tfidf)
