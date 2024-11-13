@@ -83,7 +83,7 @@ def print_clusters_report(f, algo_name, num_of_clusters, ngram_size, main_df, cl
         # f.write('\n\t\tResearchers (' + str(len(people_cluster_dict[cluster_index])) + '): ' + ','
         #      .join(people_cluster_dict[cluster_index]))
         f.write(
-            '\n\tTop 20 n-grams: ' + get_top_keywords(clusters_df, cluster_index, tfidf_obj.get_feature_names(), 20))
+            '\n\tTop 20 n-grams: ' + get_top_keywords(clusters_df, cluster_index, tfidf_obj.get_feature_names_out(), 20))
 
 
 
@@ -127,12 +127,16 @@ def main():
     for field_set in FIELDS:
         output_dir = "output/" + "-".join(field_set) + "/"
         os.makedirs(output_dir, exist_ok=True)
+        print("Building corpus for fields: {}".format(field_set))
         abstracts_df = build_corpus(field_set, do_stemming=True, do_remove_common=True)
         f = open(output_dir + "-".join(field_set) + '-cluster-info.txt', 'w')
 
         abstracts_df.drop(columns="people")
         text_arr = abstracts_df.iloc[:, 1:].values
+
+
         for ngram_size in range(2, 5):
+            print("Building TF-IDF for {}-grams".format(ngram_size))
             tfidf_vectorizer = TfidfVectorizer(
                 min_df=5,
                 max_df=0.95,
@@ -141,10 +145,12 @@ def main():
                 analyzer='word',
                 token_pattern=r'(?u)\b[A-Za-z]+\b')
             tfidf_vectorizer.fit(abstracts_df.text)
+            print("Transforming text to TF-IDF")
             tf_idf = tfidf_vectorizer.transform(abstracts_df.text)
 
             try:
-                for num_cluster in range(2, range_max):
+                for num_cluster in range(5, 6):
+                    print("Evaluating cluster of size {}".format(num_cluster))
                     mbk = MiniBatchKMeans(init="k-means++", n_clusters=num_cluster, init_size=1024, batch_size=2048,
                                           random_state=10)
                     k = KMeans(init="k-means++", n_clusters=num_cluster, n_init=10)

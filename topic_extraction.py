@@ -10,11 +10,12 @@ import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.decomposition import NMF, MiniBatchNMF, LatentDirichletAllocation
 
+from freq_calc.utils.fields import Fields
 from tf_idf_sci import build_corpus, FIELDS, plot_sil
-from utils import STEMDICT, write_cluster_to_json
+from utils import STEMDICT, write_cluster_to_json, build_corpus_words_by_year, get_stemdict_cache
 
 n_samples = 2000
-n_features = 100000
+n_features = 10000
 n_components = 5
 n_top_words = 20
 batch_size = 128
@@ -22,36 +23,47 @@ init = "nndsvda"
 
 
 def get_people_for_topic(people, series):
+    print("Getting people for topic", people, series)
     people_per_topic = {}
     for i in range(0, len(series)):
         people_per_topic[''.join([j for j in people[i] if not j.isdigit()]).strip()] = str(series[i])
 
     return people_per_topic
 
-def process_field(fields):
-    def plot_top_words(model, nmf_features, feature_names, n_top_words, title, people):
 
-        fig, axes = plt.subplots(2, 5, figsize=(30, 15), sharex=True)
-        axes = axes.flatten()
-        document_count = pd.DataFrame(nmf_features).idxmax(axis=1).value_counts()
-        feature_dict = {}
-        for topic_idx, topic in enumerate(model.components_):
-            top_features_ind = topic.argsort()[: -n_top_words - 1 : -1]
-            top_features = [feature_names[i] for i in top_features_ind]
-            top_unstemmed_features = []
-            weights = topic[top_features_ind]
+def plot_top_words(model, nmf_features, feature_names, n_top_words, title, people, fields, output_dir, want_graph=True):
+    STEMDICT = get_stemdict_cache()
 
-            for features in top_features:
-                feature = ""
-                for feature_word in features.split(" "):
-                    feature += STEMDICT[feature_word] + " "
-                top_unstemmed_features.append(feature.rstrip())
 
-            feature_dict[topic_idx] = ",".join(top_unstemmed_features)
 
-            write_cluster_to_json(title + "-" + "-".join(fields),
-                                  get_people_for_topic(people, pd.DataFrame(nmf_features).idxmax(axis=1)), feature_dict)
+    print("ptw - getting document count")
+    document_count = pd.DataFrame(nmf_features).idxmax(axis=1).value_counts()
+    feature_dict = {}
+    print ("ptw - number of topics " + str(len(model.components_)))
+    for topic_idx, topic in enumerate(model.components_):
+        top_features_ind = topic.argsort()[: -n_top_words - 1: -1]
+        top_features = [feature_names[i] for i in top_features_ind]
+        print("top_features", top_features)
+        top_unstemmed_features = []
+        weights = topic[top_features_ind]
 
+        for features in top_features:
+            feature = ""
+            for feature_word in features.split(" "):
+                # feature += STEMDICT[feature_word] + " "
+                words = ""
+                for word, count in STEMDICT[feature_word].items():
+                    top_unstemmed_features.append(word.rstrip())
+
+        print("top_unstemmed_features", top_unstemmed_features)
+        feature_dict[topic_idx] = ",".join(top_unstemmed_features)
+        print("writing cluster to json: ", title + "-" + "-".join(fields))
+        write_cluster_to_json(title + "-" + "-".join(fields),
+                              get_people_for_topic(people, pd.DataFrame(nmf_features).idxmax(axis=1)), feature_dict)
+
+        if want_graph:
+            fig, axes = plt.subplots(2, 5, figsize=(30, 15), sharex=True)
+            axes = axes.flatten()
             ax = axes[topic_idx]
             ax.barh(top_unstemmed_features, weights, height=0.7)
             doc_count = document_count.get(topic_idx)
@@ -64,6 +76,7 @@ def process_field(fields):
                 ax.spines[i].set_visible(False)
             fig.suptitle(title, fontsize=40)
 
+    if (want_graph):
         plt.subplots_adjust(top=0.90, bottom=0.05, wspace=0.90, hspace=0.3)
 
         plt.ioff()
@@ -71,59 +84,7 @@ def process_field(fields):
         plt.close(fig)
 
 
-    # Load the 20 newsgroups dataset and vectorize it. We use a few heuristics
-    # to filter out useless terms early on: the posts are stripped of headers,
-    # footers and quoted replies, and common English words, words occurring in
-    # only one document or in at least 95% of the documents are removed.
-
-    print("Loading dataset...")
-    t0 = time()
-
-
-    abstracts_df = build_corpus(fields, do_stemming=True, do_remove_common=True)
-    data = abstracts_df["text"].tolist()
-    # texts = abstracts_df["text"]
-    # dictionary = Dictionary(texts)
-    people = abstracts_df["people"].tolist()
-
-    # data, _ = fetch_20newsgroups(
-    #     shuffle=True,
-    #     random_state=1,
-    #     remove=("headers", "footers", "quotes"),
-    #     return_X_y=True,
-    # )
-
-    def convert(lst):
-        return ''.join(lst).split()
-
-    data_samples = data[:n_samples]
-    print("done in %0.3fs." % (time() - t0))
-    data_samnples_list = [convert(item) for item in data_samples]
-    # Use tf-idf features for NMF.
-    print("Extracting tf-idf features for NMF...")
-    tfidf_vectorizer = TfidfVectorizer(
-        max_df=0.95, min_df=2, max_features=n_features, stop_words="english", ngram_range=(1, 4)
-    )
-    t0 = time()
-    tfidf = tfidf_vectorizer.fit_transform(data_samples)
-    print("done in %0.3fs." % (time() - t0))
-
-    # Use tf (raw term count) features for LDA.
-    # print("Extracting tf features for LDA...")
-    #THIS IS THE DICT FOLLOWED BY THE COUNTS!
-    tf_vectorizer = CountVectorizer(
-        max_df=0.95, min_df=2, max_features=n_features, stop_words="english", ngram_range=(1, 4)
-    )
-    t0 = time()
-    tf = tf_vectorizer.fit_transform(data_samples)
-    print("done in %0.3fs." % (time() - t0))
-    print()
-
-    # Fit the NMF model
-    print(
-        "Fitting the NMF model (Frobenius norm) with tf-idf features, "
-        "n_samples=%d and n_features=%d..." % (n_samples, n_features)
-    )
+def fit_nmfs_frobenius(tfidf_vectorizer, tfidf, tf_vectorizer, tf, people, field):
     t0 = time()
     nmf = NMF(
         n_components=n_components,
@@ -138,21 +99,17 @@ def process_field(fields):
 
     nmf_features = nmf.transform(tfidf)
 
-    output_dir = "output-te/" + "-".join(fields) + "/"
+    output_dir = "output-te/" + "-".join(field) + "/"
     os.makedirs(output_dir, exist_ok=True)
 
     tfidf_feature_names = tfidf_vectorizer.get_feature_names_out()
     plot_top_words(
-        nmf, nmf_features, tfidf_feature_names, n_top_words, "Topics in NMF model (Frobenius norm)", people
+        nmf, nmf_features, tfidf_feature_names, n_top_words, "Topics in NMF model (Frobenius norm)", people, field,
+        output_dir
     )
 
-    # Fit the NMF model
-    print(
-        "\n" * 2,
-        "Fitting the NMF model (generalized Kullback-Leibler "
-        "divergence) with tf-idf features, n_samples=%d and n_features=%d..."
-        % (n_samples, n_features),
-    )
+
+def fit_nmfc_kl(tfidf_vectorizer, tfidf, people, fields):
     t0 = time()
     nmf_c = NMF(
         n_components=n_components,
@@ -169,6 +126,7 @@ def process_field(fields):
     nmf = nmf_c.fit(tfidf)
 
 
+
     print("done in %0.3fs." % (time() - t0))
     nmf_features = nmf.transform(tfidf)
     tfidf_feature_names = tfidf_vectorizer.get_feature_names_out()
@@ -178,16 +136,12 @@ def process_field(fields):
         tfidf_feature_names,
         n_top_words,
         "Topics in NMF model (generalized Kullback-Leibler divergence)",
-        people
+        people,
+        fields
     )
 
-    # Fit the MiniBatchNMF model
-    print(
-        "\n" * 2,
-        "Fitting the MiniBatchNMF model (Frobenius norm) with tf-idf "
-        "features, n_samples=%d and n_features=%d, batch_size=%d..."
-        % (n_samples, n_features, batch_size),
-    )
+
+def fit_mb_nmf(tfidf_vectorizer, tfidf, people, fields, output_dir):
     t0 = time()
     mbnmf = MiniBatchNMF(
         n_components=n_components,
@@ -209,17 +163,15 @@ def process_field(fields):
         tfidf_feature_names,
         n_top_words,
         "Topics in MiniBatchNMF model (Frobenius norm)",
-        people
+        people,
+        fields,
+        output_dir
     )
 
-    # Fit the MiniBatchNMF model
-    print(
-        "\n" * 2,
-        "Fitting the MiniBatchNMF model (generalized Kullback-Leibler "
-        "divergence) with tf-idf features, n_samples=%d and n_features=%d, "
-        "batch_size=%d..." % (n_samples, n_features, batch_size),
-    )
+
+def fit_mb_kl(tfidf_vectorizer, tfidf, people, fields):
     t0 = time()
+    print("Fitting the MiniBatchNMF model (generalized Kullback-Leibler divergence) with tf-idf features...")
     mbnmf = MiniBatchNMF(
         n_components=n_components,
         random_state=1,
@@ -230,42 +182,100 @@ def process_field(fields):
         alpha_H=0.00005,
         l1_ratio=0.5,
     ).fit(tfidf)
+    print("done in %0.3fs." % (time() - t0))
+
+    print("Transforming data")
+    t0 = time()
     nmf_features = mbnmf.transform(tfidf)
     print("done in %0.3fs." % (time() - t0))
 
+    output_dir = "output-te/" + "-".join(fields) + "-" + "mbkd/"
+    os.makedirs(output_dir, exist_ok=True)
+    print("output-dir: " + output_dir)
+
+    print("Getting feature names")
+    t0 = time()
     tfidf_feature_names = tfidf_vectorizer.get_feature_names_out()
+    print("done in %0.3fs." % (time() - t0))
+
+    print("Plotting top words")
+    t0 = time()
     plot_top_words(
         mbnmf,
         nmf_features,
         tfidf_feature_names,
         n_top_words,
         "Topics in MiniBatchNMF model (generalized Kullback-Leibler divergence)",
-        people
+        people,
+        fields,
+        output_dir,
+        want_graph=False
     )
+    print("done in %0.3fs." % (time() - t0))
 
-    # print(
-    #     "\n" * 2,
-    #     "Fitting LDA models with tf features, n_samples=%d and n_features=%d..."
-    #     % (n_samples, n_features),
-    # )
-    # lda = LatentDirichletAllocation(
-    #     n_components=n_components,
-    #     max_iter=5,
-    #     learning_method="online",
-    #     learning_offset=50.0,
-    #     random_state=0,
-    # )
-    # t0 = time()
-    # lda.fit(tf)
-    # print("done in %0.3fs." % (time() - t0))
-    #
-    # tf_feature_names = tf_vectorizer.get_feature_names_out()
-    # plot_top_words(lda, tf_feature_names, n_top_words, "Topics in LDA model")
+
+def process_field(field, bfit_nmfs_frobenius, bfit_nmfc_kl, bfit_mb_nmf, bfit_mb_kl):
+    print("Processing field", field)
+    print("Building corpus")
+    t0 = time()
+    corpus_dfs = build_corpus(field, do_stemming=True, do_remove_common=True, want_cache=True)
+
+    print("done in %0.3fs." % (time() - t0))
+
+
+
+    print("Loading dataset...")
+    t0 = time()
+
+    data = corpus_dfs["text"].tolist()
+    # texts = abstracts_df["text"]
+    # dictionary = Dictionary(texts)
+    people = corpus_dfs["people"].tolist()
+
+    def convert(lst):
+        return ''.join(lst).split()
+
+    data_samples = data[:n_samples]
+    print("done in %0.3fs." % (time() - t0))
+    data_samnples_list = [convert(item) for item in data_samples]
+    # Use tf-idf features for NMF.
+    ##if tfidf is already saved to disk, load it
+
+    print("Extracting tf-idf features...")
+    tfidf_vectorizer = TfidfVectorizer(
+        max_df=0.95, min_df=2, max_features=n_features, stop_words="english", ngram_range=(1, 4)
+    )
+    t0 = time()
+    tfidf = tfidf_vectorizer.fit_transform(data_samples)
+    print("done in %0.3fs." % (time() - t0))
+
+    t0 = time()
+    print("Running count vectorizer")
+    # Use tf (raw term count) features for LDA.
+    # print("Extracting tf features for LDA...")
+    # THIS IS THE DICT FOLLOWED BY THE COUNTS!
+    tf_vectorizer = CountVectorizer(
+        max_df=0.95, min_df=2, max_features=n_features, stop_words="english", ngram_range=(1, 4)
+    )
+    print("done in %0.3fs." % (time() - t0))
+    print("transforming fitting/transforming data samples")
+    t0 = time()
+    tf = tf_vectorizer.fit_transform(data_samples)
+    print("done in %0.3fs." % (time() - t0))
+
+    if bfit_nmfs_frobenius:
+        fit_nmfs_frobenius(tfidf_vectorizer, tfidf, tf_vectorizer, tf, people, field)
+    if bfit_nmfc_kl:
+        fit_nmfc_kl(tfidf_vectorizer, tfidf, people, field)
+    if bfit_mb_nmf:
+        fit_mb_nmf(tfidf_vectorizer, tfidf, people, field)
+    if bfit_mb_kl:
+        fit_mb_kl(tfidf_vectorizer, tfidf, people, field)
 
 
 def main():
     for field_set in FIELDS:
-        process_field(field_set)
+        process_field(field_set, False, False, False, True)
 
 
 if __name__ == "__main__":
