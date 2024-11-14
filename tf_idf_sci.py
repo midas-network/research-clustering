@@ -1,5 +1,7 @@
 import os
 import re
+import threading
+import time
 import warnings
 
 import matplotlib.pyplot as plt
@@ -14,28 +16,30 @@ from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score, silhouette_samples
 from yellowbrick.cluster import SilhouetteVisualizer
 
+from util.update_data import update_data
 from utils import build_corpus
+
+# current date and time as a string in the format YYYYMMDD-HHMMSS
+DATE_TIME = os.popen('date +"%Y%m%d-%H%M%S"').read().strip()
+# the output directory
+
+# OUTPUT_DIR is based on the date and time the script is run
+OUTPUT_DIR = "output" + os.path.sep + "tf_idf_sci" + os.path.sep + DATE_TIME
 
 nltk.download('stopwords', quiet=True)
 nltk.download('punkt', quiet=True)
 warnings.filterwarnings("ignore")
 
-
 # set DEBUG in your environment variables to enable debug mode
 DEBUG = os.getenv("DEBUG", 'False').lower() in ('true', '1', 't')
 
-
-
 FIELDS = [{"pubmedKeywords"},
+          {"meshTerms"},
+          {"paperAbstract"},
           {"pubmedKeywords", "meshTerms"},
           {"pubmedKeywords", "paperAbstract"},
-          {"pubmedKeywords", "meshTerms", "paperAbstract"},
-          {"pubmedKeywords", "paperAbstract"},
-          {"meshTerms"},
           {"meshTerms", "paperAbstract"},
-          {"paperAbstract"}]
-
-
+          {"pubmedKeywords", "meshTerms", "paperAbstract"}]
 
 
 def plot_tsne_pca(output_dir, algo_name, cluster_num, ngram_size, data, labels):
@@ -57,7 +61,9 @@ def plot_tsne_pca(output_dir, algo_name, cluster_num, ngram_size, data, labels):
     ax[1].scatter(tsne[max_items, 0], tsne[max_items, 1], c=label_subset)
     ax[1].set_title('TSNE Cluster Plot: {} Clusters; {}-word n-grams'.format(cluster_num, ngram_size))
 
-    plt.savefig(output_dir + '{}-{}clstrs-{}grm.png'.format(algo_name, cluster_num, ngram_size))
+    plt.savefig(
+        output_dir + os.path.sep + "tnse_pca" + os.path.sep + '{}-{}clstrs-{}grm.png'.format(algo_name, cluster_num,
+                                                                                             ngram_size))
 
 
 def get_top_keywords(clusters_df, cluster_index, labels, n_terms):
@@ -83,17 +89,20 @@ def print_clusters_report(f, algo_name, num_of_clusters, ngram_size, main_df, cl
         # f.write('\n\t\tResearchers (' + str(len(people_cluster_dict[cluster_index])) + '): ' + ','
         #      .join(people_cluster_dict[cluster_index]))
         f.write(
-            '\n\tTop 20 n-grams: ' + get_top_keywords(clusters_df, cluster_index, tfidf_obj.get_feature_names_out(), 20))
+            '\n\tTop 20 n-grams: ' + get_top_keywords(clusters_df, cluster_index, tfidf_obj.get_feature_names_out(),
+                                                      20))
 
 
-
-
-def plot_sil(output_dir, alg, algo_name, sample_silhouette_values, cluster_labels, n_clusters, ngram_size, silhouette_avg, clusters,
+def plot_sil(alg, algo_name, sample_silhouette_values, cluster_labels, n_clusters, ngram_size,
+             silhouette_avg, clusters,
              text):
     plt.clf()
     visualizer = SilhouetteVisualizer(alg, colors='yellowbrick')  #
     visualizer.fit(text)
-    visualizer.show(outpath=output_dir + 'sil-{}-{}clstrs-{}grm.png'.format(algo_name, n_clusters, ngram_size))
+    visualizer.show(
+        outpath=OUTPUT_DIR + os.path.sep + "tnse_pca" + os.path.sep + + 'sil-{}-{}clstrs-{}grm.png'.format(algo_name,
+                                                                                                           n_clusters,
+                                                                                                           ngram_size))
     # x = text
     # sc = SpectralClustering(n_clusters=4).fit(x)
     # labels = sc.labels_
@@ -102,68 +111,107 @@ def plot_sil(output_dir, alg, algo_name, sample_silhouette_values, cluster_label
     # plt.show()
 
 
-def evaluate(output_dir, clusterer, alg_name, f, X, ngram_size, abstracts_df, tfidf, num_clusters, fields):
+def evaluate(clusterer, alg_name, f, X, ngram_size, abstracts_df, tfidf, num_clusters, fields, want_graphs):
     cluster_labels = clusterer.fit_predict(X)
     silhouette_avg = silhouette_score(X, cluster_labels)
     silhouette_score_text = str(silhouette_avg)
     sample_silhouette_values = silhouette_samples(X, cluster_labels)
-    try:
-        plot_sil(output_dir, clusterer, n_clusters=num_clusters, sample_silhouette_values=sample_silhouette_values,
-                 silhouette_avg=silhouette_avg, clusters=clusterer, text=X, cluster_labels=cluster_labels,
-                 ngram_size=ngram_size, algo_name=alg_name)
-    except ValueError as e:
-        print("Error making silhouette chart for {} with {} and {}-grams for {}".format(alg_name, num_clusters,
-                                                                                       ngram_size, " ".join(fields)))
-        print(e)
+    if want_graphs:
+        try:
+            plot_sil(clusterer, n_clusters=num_clusters, sample_silhouette_values=sample_silhouette_values,
+                     silhouette_avg=silhouette_avg, clusters=clusterer, text=X, cluster_labels=cluster_labels,
+                     ngram_size=ngram_size, algo_name=alg_name)
+        except ValueError as e:
+            print("Error making silhouette chart for {} with {} and {}-grams for {}".format(alg_name, num_clusters,
+                                                                                            ngram_size,
+                                                                                            " ".join(fields)))
+            print(e)
     df_clusters = pd.DataFrame(X.todense()).groupby(cluster_labels).mean()
     print_clusters_report(f, alg_name, cluster_labels.max() + 1, ngram_size, abstracts_df, df_clusters, cluster_labels,
                           tfidf, silhouette_score_text)
-    #this works, we just aren't using it right now
-    #plot_tsne_pca(output_dir, alg_name, cluster_labels.max() + 1, ngram_size, X, cluster_labels)
+    # this works, we just aren't using it right now
+    # plot_tsne_pca(output_dir, alg_name, cluster_labels.max() + 1, ngram_size, X, cluster_labels)
+
+
+def clean_output_directory():
+    for root, dirs, files in os.walk(OUTPUT_DIR):
+        for file in files:
+            if file.endswith(".png"):
+                os.remove(os.path.join(root, file))
+            if file.endswith(".txt"):
+                os.remove(os.path.join(root, file))
+
+
+def build_corpus_thread(field_set):
+    start_time = time.time()
+    build_corpus(field_set, do_stemming=True, do_remove_common=True)
+    stop_time = time.time()
+    print(f"Seconds to build corpus for {field_set}: {stop_time - start_time}")
+
+
+def build_all_corpuses():
+    threads = []
+    for field_set in FIELDS:
+        print("Building corpus for fields: {}".format(field_set))
+
+        thread = threading.Thread(target=build_corpus_thread, args=(field_set,))
+        threads.append(thread)
+        thread.start()
+    for thread in threads:
+        thread.join()
 
 
 def main():
-    range_max = 8
+    print("Updating datasources...")
+    update_data()
+    print("Done updating datasources")
+    print("building all corpuses")
+    build_all_corpuses()
+    print("Done building corpuses")
     for field_set in FIELDS:
-        output_dir = "output/" + "-".join(field_set) + "/"
-        os.makedirs(output_dir, exist_ok=True)
-        print("Building corpus for fields: {}".format(field_set))
-        abstracts_df = build_corpus(field_set, do_stemming=True, do_remove_common=True)
-        f = open(output_dir + "-".join(field_set) + '-cluster-info.txt', 'w')
+        output_dir = OUTPUT_DIR + "/" + "-".join(field_set) + "/"
+    os.makedirs(output_dir, exist_ok=True)
+    print("Building corpus for fields: {}".format(field_set))
+    # time how long this call takes
 
-        abstracts_df.drop(columns="people")
-        text_arr = abstracts_df.iloc[:, 1:].values
+    start_time = time.time()
+    corpus_df = build_corpus(field_set, do_stemming=True, do_remove_common=True)
+    stop_time = time.time()
+    print("Seconds to build corpus: ", stop_time - start_time)
 
+    f = open(output_dir + "-".join(field_set) + '-cluster-info.txt', 'w')
 
-        for ngram_size in range(2, 5):
-            print("Building TF-IDF for {}-grams".format(ngram_size))
-            tfidf_vectorizer = TfidfVectorizer(
-                min_df=5,
-                max_df=0.95,
-                max_features=8000,
-                ngram_range=(ngram_size, ngram_size),
-                analyzer='word',
-                token_pattern=r'(?u)\b[A-Za-z]+\b')
-            tfidf_vectorizer.fit(abstracts_df.text)
-            print("Transforming text to TF-IDF")
-            tf_idf = tfidf_vectorizer.transform(abstracts_df.text)
+    corpus_df.drop(columns="people")
 
-            try:
-                for num_cluster in range(5, 6):
-                    print("Evaluating cluster of size {}".format(num_cluster))
-                    mbk = MiniBatchKMeans(init="k-means++", n_clusters=num_cluster, init_size=1024, batch_size=2048,
-                                          random_state=10)
-                    k = KMeans(init="k-means++", n_clusters=num_cluster, n_init=10)
-                    evaluate(output_dir, mbk, "MiniBatchKMeans", f, tf_idf, ngram_size, abstracts_df, tfidf_vectorizer,
-                             num_cluster, field_set)
-                    evaluate(output_dir, k, "KMeans", f, tf_idf, ngram_size, abstracts_df, tfidf_vectorizer,
-                             num_cluster, field_set)
-            except ValueError as e:
-                print("Error occurred during evaluation of cluster of size {} ".format(num_cluster))
-                print(e)
+    for ngram_size in range(1, 5):
+        print("Building TF-IDF for {}-grams".format(ngram_size))
+    tfidf_vectorizer = TfidfVectorizer(
+        min_df=5,
+        max_df=0.95,
+        max_features=8000,
+        ngram_range=(ngram_size, ngram_size),
+        analyzer='word',
+        token_pattern=r'(?u)\b[A-Za-z]+\b')
+
+    tfidf_vectorizer.fit(corpus_df.text)
+    print("Transforming text to TF-IDF")
+    tf_idf = tfidf_vectorizer.transform(corpus_df.text)
+
+    try:
+        for num_cluster in range(5, 6):
+            print("Evaluating cluster of size {}".format(num_cluster))
+            mbk = MiniBatchKMeans(init="k-means++", n_clusters=num_cluster, init_size=1024, batch_size=2048,
+                                  random_state=10)
+            k = KMeans(init="k-means++", n_clusters=num_cluster, n_init=10)
+            evaluate(mbk, "MiniBatchKMeans", f, tf_idf, ngram_size, corpus_df, tfidf_vectorizer,
+                     num_cluster, field_set, want_graphs=False)
+            evaluate(k, "KMeans", f, tf_idf, ngram_size, corpus_df, tfidf_vectorizer,
+                     num_cluster, field_set, want_graphs=False)
+    except ValueError as e:
+        print("Error occurred during evaluation of cluster of size {} ".format(num_cluster))
+        print(e)
     quit()
 
 
 if __name__ == "__main__":
     main()
-

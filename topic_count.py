@@ -6,7 +6,7 @@ import json
 from sklearn.feature_extraction.text import CountVectorizer
 
 from utils import filter_mesh_terms, build_corpus_words_by_year, get_papers_per_word, unstemword
-from fields import Fields
+from enums.fields import Fields
 
 n_features = 100000
 n_top_words = 20

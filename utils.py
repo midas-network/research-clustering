@@ -1,10 +1,10 @@
 import json
 import os
-from enum import Enum
 
 import math
 import re
 import string
+import time
 
 from nltk import PorterStemmer
 from nltk.tokenize import wordpunct_tokenize
@@ -13,10 +13,10 @@ from nltk.corpus import stopwords
 import pandas as pd
 import numpy as np
 
-from UnstemMethod import UnstemMethod
-from fields import Fields
+from enums.UnstemMethod import UnstemMethod
+from enums.fields import Fields
 
-STEMDICT = {}
+STEMDICTS = {}
 stop_words = set(stopwords.words('english'))
 
 
@@ -25,6 +25,7 @@ def get_stemdict_cache():
     if os.path.exists("cache/stemdict.json"):
         with open("cache/stemdict.json", "r") as f:
             return json.load(f)
+
 
 def remove_common_no_ngram(text, bypass):
     if not bypass:
@@ -214,7 +215,6 @@ def remove_common(text, ngram_count, bypass):
         text = re.sub(r'\bnational institutes of health', '', text)
         text = re.sub(r'\bcente[a-z]* for dis[a-z]* cont[a-z]*', '', text)
 
-
     filter_words_2gram = []
     if ngram_count <= 2:
         for string in filter_words_2gram:
@@ -254,7 +254,6 @@ def remove_common(text, ngram_count, bypass):
         text = re.sub(r'\bcontact tracing', '', text)
         text = re.sub(r'\bmathema[a-z]* mode[a-z]*', '', text)
         text = re.sub(r'\bpublic heal[a-z]*', '', text)
-    
 
     filter_words_1gram = ['polic', 'population', 'common', 'case', 'spread', 'infectious',
                           'computat', 'susceptib', 'sensitivi', 'transmitt', 'fatality',
@@ -310,10 +309,10 @@ def remove_common(text, ngram_count, bypass):
                           'thus', 'tool', 'total', 'value', 'wide', 'work', 'world', 'working', 'publish',
                           'explain', 'correlate', 'annual', 'address', 'average', 'event', 'generate',
                           'importan', 'previous', 'represent']
-    if ngram_count <=1:
+    if ngram_count <= 1:
         for string in filter_words_1gram:
-           text = re.sub(r'\b' + string + '[a-z]*', '', text)
-        
+            text = re.sub(r'\b' + string + '[a-z]*', '', text)
+
         text = re.sub(r'\b[0-9]*\b', '', text)
 
     # all
@@ -324,24 +323,25 @@ def remove_common(text, ngram_count, bypass):
 
     return text
 
+
 def filter_mesh_terms(data):
     filter_terms = ['Asolescent', 'Adult', 'Aged', 'Animals', 'Child', 'Female',
                     'Humans', 'Infant', 'Male', 'Middle Aged', 'Young Adult',
                     'Adolescent', 'Child, Preschool', 'Computer Simulation',
                     'Incidence', 'Prevalence', 'Aged, 80 and over']
 
-    
     for term in filter_terms:
         if term in data.keys():
             del data[term]
 
     return data
 
+
 def get_field_value(val):
     text = ""
     if isinstance(val, pd.Series):
         if not isinstance(val.values[0], list) and not isinstance(val.values[0],
-                    str) and math.isnan(val.values[0]):
+                                                                  str) and math.isnan(val.values[0]):
             pass
         else:
             text = " ".join(val.values[0])
@@ -349,7 +349,7 @@ def get_field_value(val):
         text = " ".join([item for item in val])
     if isinstance(val, str):
         text = val
-    
+
     return text
 
 
@@ -359,10 +359,11 @@ def inc_topic_count(text_dict, year, topic):
             text_dict[year][topic] = 0
     else:
         text_dict[year] = {topic: 0}
-    
+
     text_dict[year][topic] += 1
 
     return text_dict
+
 
 def post_process_text(field, text, title, ngram_count, do_remove_common, do_stemming):
     if field == Fields.ABSTRACT:
@@ -371,12 +372,14 @@ def post_process_text(field, text, title, ngram_count, do_remove_common, do_stem
 
     return remove_stop_words_and_do_stemming(text, ngram_count, do_stemming, do_remove_common)
 
+
 def write_cluster_to_json(title, bins, features):
     with open("output/clusters/people-with-clusters-" + title + ".json", "w") as outfile:
         json.dump(bins, outfile)
 
     with open("output/clusters/cluster-info-" + title + ".json", "w") as outfile2:
         json.dump(features, outfile2)
+
 
 def word_is_present(word, list_of_words, ngram_count):
     if ngram_count == 1:
@@ -391,9 +394,10 @@ def word_is_present(word, list_of_words, ngram_count):
         else:
             return False
 
+
 def remove_stop_words_and_do_stemming_no_ngrams(unfiltered_text, do_stemming, do_remove_common):
     unfiltered_text = remove_common_no_ngram(unfiltered_text.translate(str.maketrans("", "", string.punctuation)),
-                                    do_remove_common)
+                                             do_remove_common)
     word_tokens = wordpunct_tokenize(unfiltered_text.lower())
 
     filtered_sentence = []
@@ -428,6 +432,7 @@ def remove_stop_words_and_do_stemming_no_ngrams(unfiltered_text, do_stemming, do
 
     return ' '.join(stem_words)
 
+
 def unstemword(stemmed_word, unstem_method=UnstemMethod.SELECT_MOST_FREQUENT):
     if stemmed_word in STEMDICT:
         indiv_stem_word_dict = STEMDICT[stemmed_word]
@@ -446,6 +451,7 @@ def unstemword(stemmed_word, unstem_method=UnstemMethod.SELECT_MOST_FREQUENT):
         print("stemmed_word does not exist in STEMDICT")
         return stemmed_word
 
+
 def make_list(obj):
     if isinstance(obj, pd.Series):
         list_obj = obj.tolist()
@@ -454,6 +460,7 @@ def make_list(obj):
     else:
         list_obj = obj
     return list_obj
+
 
 def build_corpus_words_by_year(field, ngram_count, min_year, max_year, do_stemming, do_remove_common):
     papers = pd.read_json('data_sources/papers.json')
@@ -508,7 +515,7 @@ def build_corpus_words_by_year(field, ngram_count, min_year, max_year, do_stemmi
 
 
 def remove_stop_words_and_do_stemming(unfiltered_text, ngram_count, do_stemming, do_remove_common):
-    unfiltered_text = remove_common(unfiltered_text.translate(str.maketrans("", "", string.punctuation)),ngram_count,
+    unfiltered_text = remove_common(unfiltered_text.translate(str.maketrans("", "", string.punctuation)), ngram_count,
                                     do_remove_common)
     word_tokens = wordpunct_tokenize(unfiltered_text.lower())
 
@@ -559,6 +566,7 @@ def unstemword(stemmed_word, unstem_method=UnstemMethod.SELECT_MOST_FREQUENT):
         print("stemmed_word does not exist in STEMDICT")
         return stemmed_word
 
+
 def make_list(obj):
     if isinstance(obj, pd.Series):
         list_obj = obj.tolist()
@@ -568,14 +576,21 @@ def make_list(obj):
         list_obj = obj
     return list_obj
 
+
 def process_text(text, title, field, do_remove_common):
     if field in [Fields.ABSTRACT]:
         text = remove_common_no_ngram(text + title, do_remove_common)
     return text
 
-def build_corpus(field_set, do_stemming, do_remove_common, want_cache=False):
-    if want_cache and os.path.exists('data_sources/people_text.json'):
-        return pd.read_json('data_sources/people_text.json')
+
+def get_corpus_cache_name(field_set):
+    return 'cache/corpus_' + '_'.join(field_set) + '.json'
+
+
+def build_corpus(field_set, do_stemming, do_remove_common, want_cache=True):
+    cache_fn = get_corpus_cache_name(field_set)
+    if want_cache and os.path.exists(cache_fn):
+        return pd.read_json(cache_fn)
     else:
         people = pd.read_json('data_sources/people.json')
         papers = pd.read_json('data_sources/papers.json')
@@ -617,16 +632,18 @@ def build_corpus(field_set, do_stemming, do_remove_common, want_cache=False):
             'text': text_list
         })
 
-        #save dataframe to file
-        df.to_json('data_sources/people_text.json')
+        # save dataframe to file
+        df.to_json(cache_fn)
+        print("")
         return df
+
 
 def build_corpus_words_by_year(field, ngram_count, min_year, max_year, do_stemming, do_remove_common):
     papers = pd.read_json('data_sources/papers.json')
     text_dict = {}
 
     for paper_idx, row in papers.iterrows():
-        if paper_idx==157:
+        if paper_idx == 157:
             pass
         # if index > 100:
         #     dfs = {}
@@ -672,6 +689,7 @@ def build_corpus_words_by_year(field, ngram_count, min_year, max_year, do_stemmi
             dfs[key] = pd.DataFrame({'text': value})
         return dfs
 
+
 def get_papers_per_word(field, ngram_count, final_word_list, min_year, max_year, do_stemming, do_remove_common):
     papers = pd.read_json('data_sources/papers.json')
     paper_dict = {}
@@ -684,14 +702,15 @@ def get_papers_per_word(field, ngram_count, final_word_list, min_year, max_year,
         os.remove(filename)
 
     words_per_year = {}
-    for year in range(min_year,max_year+1):
+    for year in range(min_year, max_year + 1):
         date = str(year) + '/1/1'
-        words_per_year[date] = make_list(final_word_list.loc[np.logical_and(final_word_list['date'] == date, final_word_list['count'] != 0), 'topic'])
+        words_per_year[date] = make_list(final_word_list.loc[np.logical_and(final_word_list['date'] == date,
+                                                                            final_word_list['count'] != 0), 'topic'])
 
     for paper_idx, row in papers.iterrows():
         all_content_text_for_paper = ""
         # ngram_count = 1
-        title =  row['title']
+        title = row['title']
         processed_title = remove_common(title, ngram_count, do_remove_common)
         uri = row['uri']
         abstract = row['paperAbstract']
@@ -723,12 +742,12 @@ def get_papers_per_word(field, ngram_count, final_word_list, min_year, max_year,
             text = get_field_value(field_content)
             if len(text) == 0:
                 continue
-            
+
             list_of_words = post_process_text(field, text, processed_title, ngram_count, do_remove_common, do_stemming)
 
         # Iterate through words for particular year
 
-        for word in words_per_year[str(year)+'/1/1']:
+        for word in words_per_year[str(year) + '/1/1']:
             if word_is_present(word, list_of_words, ngram_count):
                 if year in paper_dict.keys():
                     if word in paper_dict[year].keys():
@@ -739,10 +758,8 @@ def get_papers_per_word(field, ngram_count, final_word_list, min_year, max_year,
                     paper_dict[year] = {}
                     paper_dict[year][word] = [{'title': title, 'uri': uri, 'abstract': abstract}]
 
-
-
         # if search_year == year and search_word in list_of_words:
-            # with open(filename, 'a') as f:
-            #     f.write(str(paper_idx) + ": " + list_of_words + '\n')
+        # with open(filename, 'a') as f:
+        #     f.write(str(paper_idx) + ": " + list_of_words + '\n')
 
     return paper_dict
