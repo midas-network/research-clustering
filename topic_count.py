@@ -1,3 +1,5 @@
+import os.path
+
 import pandas as pd
 import numpy as np
 import itertools
@@ -5,8 +7,10 @@ import json
 
 from sklearn.feature_extraction.text import CountVectorizer
 
-from utils import filter_mesh_terms, build_corpus_words_by_year, get_papers_per_word, unstemword
+from utils import filter_mesh_terms, build_corpus_words_by_year, get_papers_per_word, unstemword, get_output_dir_name
 from enums.fields import Fields
+
+OUTPUT_DIR = get_output_dir_name("midas_river_data")
 
 n_features = 100000
 n_top_words = 20
@@ -141,15 +145,15 @@ def process_field(field, ngram_count, min_year, max_year):
 
     count_filename = field.value + '-ngram_' + str(ngram_count) + '-counts.csv'
     paper_filename = field.value + '-ngram_' + str(ngram_count) + '-papers.json'
-    all_topics_df.to_csv('output/' + count_filename, index=False)
-    with open('output/' + paper_filename, 'w') as fp:
+    all_topics_df.to_csv(OUTPUT_DIR + os.path.sep + count_filename, index=False)
+    with open(OUTPUT_DIR + os.path.sep + paper_filename, 'w') as fp:
         fp.write(json.dumps(unstemmed_paper_dict, indent=4))
 
 
 def main():
-    do_all = False
+    do_all = True
     min_year = 2013
-    max_year = 2022
+    max_year = 2023
     if do_all:
         fields = [Fields.ABSTRACT, Fields.PUBMED_KEYWORD]
         for field in fields:

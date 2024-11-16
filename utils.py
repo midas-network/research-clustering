@@ -16,15 +16,16 @@ import numpy as np
 from enums.UnstemMethod import UnstemMethod
 from enums.fields import Fields
 
-STEMDICTS = {}
+STEMDICT = {}
 stop_words = set(stopwords.words('english'))
 
+def get_output_dir_name(app_name):
+    # current date and time as a string in the format YYYYMMDD-HHMMSS
+    DATE_TIME = os.popen('date +"%Y%m%d-%H%M%S"').read().strip()
+    # the output directory
 
-def get_stemdict_cache():
-    ##if the stemdict file exists
-    if os.path.exists("cache/stemdict.json"):
-        with open("cache/stemdict.json", "r") as f:
-            return json.load(f)
+    # OUTPUT_DIR is based on the date and time the script is run
+    return "output" + os.path.sep + app_name + os.path.sep + DATE_TIME
 
 
 def remove_common_no_ngram(text, bypass):
@@ -33,6 +34,21 @@ def remove_common_no_ngram(text, bypass):
 
     text = re.sub(r'(©|copyright|Copyright|FUNDING|Funding Statement|This article is protected).*$', '', text)
     text = text.lower()
+    # remove all two letter words
+    text = re.sub(r'\b[a-z]\b', '', text)
+    # add accur”, “increase”, “decreas”, “week”, “year”, “anim”, “middl”, “approach”, “chang”,
+    text = re.sub(r'use[a-z]*', '', text)
+    text = re.sub(r'accur[a-z]*', '', text)
+    text = re.sub(r'increase[a-z]*', '', text)
+    text = re.sub(r'decreas[a-z]*', '', text)
+    text = re.sub(r'week[a-z]*', '', text)
+    text = re.sub(r'year[a-z]*', '', text)
+    text = re.sub(r'anim[a-z]*', '', text)
+    text = re.sub(r'middl[a-z]*', '', text)
+    text = re.sub(r'approach[a-z]*', '', text)
+    text = re.sub(r'chang[a-z]*', '', text)
+    text = re.sub(r'male', '', text)
+    text = re.sub(r'female', '', text)
     text = re.sub(r'(infectious disease)', '', text)
     text = re.sub(r'mathematical model?', '', text)
     text = re.sub(r'policy|policies', '', text)
@@ -187,6 +203,15 @@ def remove_common_no_ngram(text, bypass):
     text = re.sub(r'estima[a-z]*', '', text)
     text = re.sub(r',', ' ', text)
     text = re.sub(r'\s+', ' ', text)
+
+    #get rid of strings of just numbres
+    text = re.sub(r'\b[0-9]*\b', '', text)
+
+    # all
+    text = re.sub(r'\b,', ' ', text)
+    text = re.sub(r'\b\s+', ' ', text)
+    text = re.sub(r'\b[a-z]\b', '', text)
+    text = re.sub(r'\b[a-z][a-z]\b', '', text)
     return text
 
 
@@ -373,12 +398,57 @@ def post_process_text(field, text, title, ngram_count, do_remove_common, do_stem
     return remove_stop_words_and_do_stemming(text, ngram_count, do_stemming, do_remove_common)
 
 
-def write_cluster_to_json(title, bins, features):
-    with open("output/clusters/people-with-clusters-" + title + ".json", "w") as outfile:
+def write_cluster_to_json(output_dir, title, bins, features):
+    if not os.path.exists(output_dir + os.path.sep + "/clusters"):
+        os.makedirs(output_dir + os.path.sep + "/clusters")
+    #bins looks like this
+    # "Kursad Tosun#https://midasnetwork.us/people/kursad-tosun/": "0",
+    # "Basmattee Boodram#https://midasnetwork.us/people/basmattee-boodram/": "0",
+    # "Joseph Lewnard#https://midasnetwork.us/people/joseph-lewnard/": "4",
+    # "Stephen Eubank#https://midasnetwork.us/people/stephen-eubank/": "0",
+    # "Tal Robin#https://midasnetwork.us/people/tal-robin/": "0",
+
+    # features looks like this:
+    # {
+    #     "0": "covid19,sarscov2,covid19,sarscov2,transmission,transmissibility,transmissible,corona,coronaes,networks,network,networked,networking,social,sociality,variant,variants,respiratory,immunity,immune,immunizations,immunization,immunizing,contact,contacts,dynamics,dynamic,dynamical,influenzae,influenza,ing,dengue,hiv,control,controlled,controls,controlling,nonpharmaceutical,resistance,resistant,resistiveness,scenario,scenarios",
+    #     "1": "individuals,individual,individualized,individuality,individually,covid19,covid19,individuals,individual,individualized,individuality,individually,covid19,covid19,individuals,individual,individualized,individuality,individually,individuals,individual,individualized,individuality,individually,covid19,quantile,combination,combined,covid19,quantile,combination,combined,covid19,quantile,combination,combined,quantile,scenario,scenarios,quantile,combination,combined,covid19,contact,contacts,networks,network,networked,networking,tree,trees,hubs,hub,temporal,influenzae,influenza,covid19,asymptomatic,scenario,scenarios,hubs,hub,immunity,immune,immunizations,immunization,immunizing,scenario,scenarios",
+    #     "2": "multi,cognitive,cognition,biased,biases,multi,cognitive,cognition,biased,biases,biased,biases,multi,theory,theories,cognitive,cognition,biased,biases,multi,theory,theories,cognitive,cognition,biased,biases,theory,theories,cognitive,cognition,biased,biases,cognitive,cognition,theory,theories,cognitive,cognition,biased,biases,multi,aggregation,aggregates,aggregate,aggregations,biased,biases,multi,aggregation,aggregates,aggregate,aggregations,multi,aggregation,aggregates,aggregate,aggregations,aggregation,aggregates,aggregate,aggregations,scenario,scenarios,projects,projection,projections,project,projecting,projected,scenario,scenarios,projects,projection,projections,project,projecting,projected,aggregation,aggregates,aggregate,aggregations,covid19,multi,aggregation,aggregates,aggregate,aggregations,covid19,biased,biases,multi,aggregation,aggregates,aggregate,aggregations,covid19",
+    #     "3": "malaria,malarias,plasmodium,falciparum,plasmodium,falciparum,malaria,malarias,elimination,eliminating,eliminated,elimination,eliminating,eliminated,mobility,mobile,mobilization,vivax,dengue,plasmodium,vivax,genetic,genetics,genetically,traveling,travelers,travel,traveler,travellers,nigeria,climate,climatic,climat,plasmodium,falciparum,malaria,malarias,falciparum,malaria,malarias,madagascar,parasite,parasites,parasitism,parasitic,drugs,drug,mda,mdas",
+    #     "4": "influenzae,influenza,influenzae,influenza,influenzae,influenza,influenzae,influenza,hospitals,hospitalizations,hospital,hospitalization,hospitalized,respiratory,hospitals,hospitalizations,hospital,hospitalization,hospitalized,es,antivirals,antiviral,influenzae,influenza,covid19,adults,adult,antigenic,antigen,antigenicity,antigens,new,targets,target,targeted,targeting,avian,respiratory,influenzae,influenza,influenzae,influenza,antivirals,antiviral,influenzae,influenza,influenzae,influenza,influenzae,influenza,avian,influenzae,influenza,household,households,h7n9,negative,negatively"
+    # }
+
+
+    people_in_clusters = {}
+    for person in bins.keys():
+        cluster_number = bins[person]
+        if cluster_number in people_in_clusters:
+            people_in_clusters[cluster_number] += 1
+        else:
+            people_in_clusters[cluster_number] = 1
+
+    with open(output_dir + os.path.sep + "/clusters/cluster-debug-" + title + ".txt", "w") as outfile:
+        #write a header
+        outfile.write("Cluster, NumPeople, Features\n")
+        for cluster in features.keys():
+            #check for key errors
+            if str(cluster) not in people_in_clusters:
+                print("error: cluster not in people_in_clusters")
+            outfile.write(str(cluster) + ", " + str(people_in_clusters[str(cluster)]) + ", " + str(features[cluster]) + "\n")
+
+    #convert the bins dictionary to an array of dictionaries
+    bins = [{"uri": person, "cluster": bins[person]} for person in bins.keys()]
+
+    #convert the features dictionary to an array of dictionaries
+    features = [{"cluster": str(cluster), "topics": features[cluster]} for cluster in features.keys()]
+
+
+    with open(output_dir + os.path.sep + "/clusters/people-with-clusters" + ".json", "w") as outfile:
         json.dump(bins, outfile)
 
-    with open("output/clusters/cluster-info-" + title + ".json", "w") as outfile2:
+    with open(output_dir + os.path.sep + "/clusters/cluster-info-Topics_NMF" + ".json", "w") as outfile2:
         json.dump(features, outfile2)
+
+
 
 
 def word_is_present(word, list_of_words, ngram_count):
@@ -426,14 +496,10 @@ def remove_stop_words_and_do_stemming_no_ngrams(unfiltered_text, do_stemming, do
                 STEMDICT[stem_word] = indiv_stem_word_dict
             stem_words.append(stem_word)
 
-    ##write stemdict to disk
-    with open('cache/stemdict.json', 'w') as fp:
-        json.dump(STEMDICT, fp)
-
     return ' '.join(stem_words)
 
 
-def unstemword(stemmed_word, unstem_method=UnstemMethod.SELECT_MOST_FREQUENT):
+def unstemword(stemdict_name, stemmed_word, unstem_method=UnstemMethod.SELECT_MOST_FREQUENT):
     if stemmed_word in STEMDICT:
         indiv_stem_word_dict = STEMDICT[stemmed_word]
         if unstem_method == UnstemMethod.SELECT_MOST_FREQUENT:
@@ -587,55 +653,51 @@ def get_corpus_cache_name(field_set):
     return 'cache/corpus_' + '_'.join(field_set) + '.json'
 
 
-def build_corpus(field_set, do_stemming, do_remove_common, want_cache=True):
-    cache_fn = get_corpus_cache_name(field_set)
-    if want_cache and os.path.exists(cache_fn):
-        return pd.read_json(cache_fn)
-    else:
-        people = pd.read_json('data_sources/people.json')
-        papers = pd.read_json('data_sources/papers.json')
-        people = people[people['publications'].map(lambda d: len(d) > 0)]
-        people_list = []
-        text_list = []
+def build_corpus(field_set, do_stemming, do_remove_common):
+    people = pd.read_json('data_sources/people.json')
+    papers = pd.read_json('data_sources/papers.json')
+    people = people[people['publications'].map(lambda d: len(d) > 0)]
+    people_list = []
+    text_list = []
 
-        for personIdx in people.index:
-            all_person_text = ""
-            title = ""
-            for paperIdx in people['publications'][personIdx]:
-                row = papers.loc[papers['uri'] == paperIdx]
+    for personIdx in people.index:
+        all_person_text = ""
+        title = ""
+        for paperIdx in people['publications'][personIdx]:
+            row = papers.loc[papers['uri'] == paperIdx]
 
-                if not row.empty and len(paperIdx) > 32:
-                    title = remove_common_no_ngram(row['title'].values[0], do_remove_common)
-                    for field in field_set:
-                        field_value = row[field]
-                        if isinstance(field_value, pd.Series):
-                            if not isinstance(row[field].values[0], list) and not isinstance(row[field].values[0],
-                                                                                             str) and math.isnan(
-                                row[field].values[0]):
-                                continue;
-                            field_value = row[field].values[0]
-                        if isinstance(field_value, str):
-                            field_value = remove_common_no_ngram(field_value, do_remove_common)
-                        if isinstance(field_value, list):
-                            field_value = " ".join(field_value)
+            if not row.empty and len(paperIdx) > 32:
+                title = remove_common_no_ngram(row['title'].values[0], do_remove_common)
+                for field in field_set:
+                    field_value = row[field]
+                    if isinstance(field_value, pd.Series):
+                        if not isinstance(row[field].values[0], list) and not isinstance(row[field].values[0],
+                                                                                         str) and math.isnan(
+                            row[field].values[0]):
+                            continue;
+                        field_value = row[field].values[0]
+                    if isinstance(field_value, str):
+                        field_value = remove_common_no_ngram(field_value, do_remove_common)
+                    if isinstance(field_value, list):
+                        field_value = " ".join(field_value)
 
-                        all_person_text += " " + field_value
+                    all_person_text += " " + field_value
 
-            all_person_text = process_text(all_person_text, title, Fields.ABSTRACT, do_remove_common)
-            person = people['name'][personIdx] + "#" + people['uri'][personIdx]
-            people_list.append(person)
-            list_of_words = remove_stop_words_and_do_stemming_no_ngrams(all_person_text, do_stemming, do_remove_common)
-            text_list.append(''.join(list_of_words))
+        all_person_text = process_text(all_person_text, title, Fields.ABSTRACT, do_remove_common)
+        person = people['name'][personIdx] + "#" + people['uri'][personIdx]
+        people_list.append(person)
+        list_of_words = remove_stop_words_and_do_stemming_no_ngrams(all_person_text, do_stemming, do_remove_common)
+        text_list.append(''.join(list_of_words))
 
-        df = pd.DataFrame({
-            'people': people_list,
-            'text': text_list
-        })
+    df = pd.DataFrame({
+        'people': people_list,
+        'text': text_list
+    })
 
-        # save dataframe to file
-        df.to_json(cache_fn)
-        print("")
-        return df
+    # save dataframe to file
+
+    print("")
+    return df
 
 
 def build_corpus_words_by_year(field, ngram_count, min_year, max_year, do_stemming, do_remove_common):

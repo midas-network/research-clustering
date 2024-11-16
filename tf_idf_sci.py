@@ -33,12 +33,13 @@ warnings.filterwarnings("ignore")
 # set DEBUG in your environment variables to enable debug mode
 DEBUG = os.getenv("DEBUG", 'False').lower() in ('true', '1', 't')
 
-FIELDS = [{"pubmedKeywords"},
-          {"meshTerms"},
-          {"paperAbstract"},
-          {"pubmedKeywords", "meshTerms"},
-          {"pubmedKeywords", "paperAbstract"},
-          {"meshTerms", "paperAbstract"},
+FIELDS = [
+          # {"pubmedKeywords"},
+          # {"meshTerms"},
+          # {"paperAbstract"},
+          # {"pubmedKeywords", "meshTerms"},
+          # {"pubmedKeywords", "paperAbstract"},
+          # {"meshTerms", "paperAbstract"},
           {"pubmedKeywords", "meshTerms", "paperAbstract"}]
 
 
@@ -91,6 +92,8 @@ def print_clusters_report(f, algo_name, num_of_clusters, ngram_size, main_df, cl
         f.write(
             '\n\tTop 20 n-grams: ' + get_top_keywords(clusters_df, cluster_index, tfidf_obj.get_feature_names_out(),
                                                       20))
+    #flush the file
+    f.flush()
 
 
 def plot_sil(alg, algo_name, sample_silhouette_values, cluster_labels, n_clusters, ngram_size,
@@ -142,74 +145,53 @@ def clean_output_directory():
                 os.remove(os.path.join(root, file))
 
 
-def build_corpus_thread(field_set):
-    start_time = time.time()
-    build_corpus(field_set, do_stemming=True, do_remove_common=True)
-    stop_time = time.time()
-    print(f"Seconds to build corpus for {field_set}: {stop_time - start_time}")
-
-
-def build_all_corpuses():
-    threads = []
-    for field_set in FIELDS:
-        print("Building corpus for fields: {}".format(field_set))
-
-        thread = threading.Thread(target=build_corpus_thread, args=(field_set,))
-        threads.append(thread)
-        thread.start()
-    for thread in threads:
-        thread.join()
-
-
 def main():
     print("Updating datasources...")
     update_data()
     print("Done updating datasources")
-    print("building all corpuses")
-    build_all_corpuses()
-    print("Done building corpuses")
+
     for field_set in FIELDS:
         output_dir = OUTPUT_DIR + "/" + "-".join(field_set) + "/"
-    os.makedirs(output_dir, exist_ok=True)
-    print("Building corpus for fields: {}".format(field_set))
-    # time how long this call takes
+        os.makedirs(output_dir, exist_ok=True)
+        print("Building corpus for fields: {}".format(field_set))
+        # time how long this call takes
 
-    start_time = time.time()
-    corpus_df = build_corpus(field_set, do_stemming=True, do_remove_common=True)
-    stop_time = time.time()
-    print("Seconds to build corpus: ", stop_time - start_time)
+        start_time = time.time()
+        corpus_df = build_corpus(field_set, do_stemming=True, do_remove_common=True)
+        stop_time = time.time()
+        print("Seconds to build corpus: ", stop_time - start_time)
 
-    f = open(output_dir + "-".join(field_set) + '-cluster-info.txt', 'w')
+        f = open(output_dir + "-".join(field_set) + '-cluster-info.txt', 'w')
 
-    corpus_df.drop(columns="people")
+        corpus_df.drop(columns="people")
 
-    for ngram_size in range(1, 5):
-        print("Building TF-IDF for {}-grams".format(ngram_size))
-    tfidf_vectorizer = TfidfVectorizer(
-        min_df=5,
-        max_df=0.95,
-        max_features=8000,
-        ngram_range=(ngram_size, ngram_size),
-        analyzer='word',
-        token_pattern=r'(?u)\b[A-Za-z]+\b')
+        for ngram_size in range(1, 5):
+            print("Building TF-IDF for {}-grams".format(ngram_size))
+            tfidf_vectorizer = TfidfVectorizer(
+                min_df=5,
+                max_df=0.95,
+                max_features=8000,
+                ngram_range=(ngram_size, ngram_size),
+                analyzer='word',
+                token_pattern=r'(?u)\b[A-Za-z]+\b')
 
-    tfidf_vectorizer.fit(corpus_df.text)
-    print("Transforming text to TF-IDF")
-    tf_idf = tfidf_vectorizer.transform(corpus_df.text)
+            tfidf_vectorizer.fit(corpus_df.text)
+            print("Transforming text to TF-IDF")
+            tf_idf = tfidf_vectorizer.transform(corpus_df.text)
 
-    try:
-        for num_cluster in range(5, 6):
-            print("Evaluating cluster of size {}".format(num_cluster))
-            mbk = MiniBatchKMeans(init="k-means++", n_clusters=num_cluster, init_size=1024, batch_size=2048,
-                                  random_state=10)
-            k = KMeans(init="k-means++", n_clusters=num_cluster, n_init=10)
-            evaluate(mbk, "MiniBatchKMeans", f, tf_idf, ngram_size, corpus_df, tfidf_vectorizer,
-                     num_cluster, field_set, want_graphs=False)
-            evaluate(k, "KMeans", f, tf_idf, ngram_size, corpus_df, tfidf_vectorizer,
-                     num_cluster, field_set, want_graphs=False)
-    except ValueError as e:
-        print("Error occurred during evaluation of cluster of size {} ".format(num_cluster))
-        print(e)
+            try:
+                for num_cluster in range(5, 6):
+                    print("Evaluating cluster of size {}".format(num_cluster))
+                    mbk = MiniBatchKMeans(init="k-means++", n_clusters=num_cluster, init_size=1024, batch_size=2048,
+                                          random_state=10)
+                    k = KMeans(init="k-means++", n_clusters=num_cluster, n_init=10)
+                    evaluate(mbk, "MiniBatchKMeans", f, tf_idf, ngram_size, corpus_df, tfidf_vectorizer,
+                             num_cluster, field_set, want_graphs=False)
+                    evaluate(k, "KMeans", f, tf_idf, ngram_size, corpus_df, tfidf_vectorizer,
+                             num_cluster, field_set, want_graphs=False)
+            except ValueError as e:
+                print("Error occurred during evaluation of cluster of size {} ".format(num_cluster))
+                print(e)
     quit()
 
 
